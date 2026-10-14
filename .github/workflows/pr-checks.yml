@@ -98,9 +98,14 @@ jobs:
       # "-rN" onto versionName) and commits it back so it persists across
       # runs. [skip ci] keeps this commit from re-triggering the workflow.
       # Only runs on pushes to feature branches — main doesn't use this,
-      # and pull_request builds shouldn't mutate branch state.
+      # and pull_request builds shouldn't mutate branch state. Only in this
+      # repository: copies of these branches elsewhere (the droidtop plugin
+      # repo's upstream-* mirrors) must stay equal to the branch they copy,
+      # and a bump commit there makes their fast-forward sync fail.
       - name: Bump build revision
-        if: github.event_name == 'push' && github.ref_name != 'main'
+        if: >-
+          github.event_name == 'push' && github.ref_name != 'main' &&
+          github.repository == 'bi0shacker001/romgi'
         run: |
           cd android/app
           rev=$(( $(cat revision.txt 2>/dev/null || echo 0) + 1 ))
