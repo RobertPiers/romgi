@@ -145,20 +145,24 @@ jobs:
       # a stable, easy-to-find download link instead of digging through
       # Actions run history — each push replaces this branch's release
       # in place rather than accumulating new ones. Skipped on pull_request
-      # runs (e.g. from forks) since those shouldn't publish anything.
+      # runs (e.g. from forks) since those shouldn't publish anything, and on
+      # ci/* scratch branches, which only exist to run these checks.
       - name: Rename APKs for release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && !startsWith(github.ref_name, 'ci/')
         run: |
           cp build/app/outputs/flutter-apk/app-debug.apk "romgi-${{ steps.meta.outputs.safe_branch }}-debug.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "romgi-${{ steps.meta.outputs.safe_branch }}-release.apk"
 
       - name: Publish branch release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && !startsWith(github.ref_name, 'ci/')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ steps.meta.outputs.safe_branch }}
           name: romgi (${{ steps.meta.outputs.safe_branch }}) — latest build
           prerelease: false
+          # Only main's build is the repository's "Latest" release; a branch
+          # build stays non-prerelease (for Obtainium) without taking it over.
+          make_latest: ${{ github.ref_name == 'main' && 'true' || 'false' }}
           body: |
             Automated build from ${{ github.sha }}. Replaced on every push to
             `${{ steps.meta.outputs.safe_branch }}` — not a stable release,
