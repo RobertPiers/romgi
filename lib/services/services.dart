@@ -7,6 +7,7 @@ export 'game_metadata_service.dart';
 export 'host_adapter.dart';
 export 'internet_archive_auth_manager.dart';
 export 'link_resolver.dart';
+export 'live_search_source.dart';
 export 'metadata/metadata_provider.dart';
 export 'metadata/metadata_registry.dart';
 export 'notification_service.dart';

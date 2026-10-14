@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/models.dart';
 import '../utils/utils.dart';
+import 'live_source_badge.dart';
 import 'retro_achievements_badge.dart';
 
 class RomGridCard extends StatelessWidget {
@@ -85,24 +86,13 @@ class RomGridCard extends StatelessWidget {
                       left: 4,
                       child: RetroAchievementsOverlayBadge(entry: entry),
                     ),
-                  if (entry.platform == 'prowlarr')
+                  if (entry.isLive)
                     Positioned(
                       bottom: 4,
                       left: 4,
-                      child: Tooltip(
-                        message: 'Live result from Prowlarr, not the offline catalog',
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.podcasts,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
+                      child: LiveSourceBadge(
+                        sourceId: entry.liveSource!,
+                        compact: true,
                       ),
                     ),
                 ],

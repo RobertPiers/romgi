@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/models.dart';
+import 'live_search_source.dart';
 
 /// Live, on-demand search against a self-hosted Prowlarr instance —
 /// Prowlarr itself aggregates whatever torrent indexers the user has
@@ -129,6 +130,7 @@ class ProwlarrService {
       slug: slugFor(title, guid),
       title: title,
       platform: 'prowlarr',
+      liveSource: ProwlarrLiveSource.sourceId,
       regions: const [],
       links: [
         DownloadLink(
@@ -187,5 +189,46 @@ class ProwlarrService {
       unitIndex++;
     }
     return '${value.toStringAsFixed(value < 10 ? 1 : 0)} ${units[unitIndex]}';
+  }
+}
+
+/// Prowlarr as a [LiveSearchSource]: any query search, once a base URL is
+/// set (the API key is read at search time; without one it adds nothing).
+/// Prowlarr has no notion of romgi's platform/region filters, so it does
+/// not look at them.
+class ProwlarrLiveSource implements LiveSearchSource {
+  ProwlarrLiveSource(this._service, {required this.baseUrl});
+
+  static const String sourceId = 'prowlarr';
+
+  final ProwlarrService _service;
+  final String baseUrl;
+
+  @override
+  String get id => sourceId;
+
+  @override
+  bool appliesTo({
+    required String query,
+    required List<String> platforms,
+    required List<String> regions,
+    required bool retroAchievementsOnly,
+  }) =>
+      query.isNotEmpty && baseUrl.isNotEmpty;
+
+  @override
+  Future<List<RomEntry>> search(String query) async {
+    try {
+      final apiKey = await _service.getApiKey();
+      if (apiKey == null || apiKey.isEmpty) return [];
+      return await _service.search(
+        baseUrl: baseUrl,
+        apiKey: apiKey,
+        query: query,
+      );
+    } catch (_) {
+      // Best-effort — a Prowlarr hiccup shouldn't fail the whole search.
+      return [];
+    }
   }
 }

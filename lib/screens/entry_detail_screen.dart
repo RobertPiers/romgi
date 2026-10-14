@@ -98,11 +98,11 @@ class _EntryDetailContentState extends ConsumerState<_EntryDetailContent> {
     super.initState();
     _scrollController.addListener(_onScroll);
 
-    // Track this entry as recently viewed — skipped for live (Prowlarr)
+    // Track this entry as recently viewed — skipped for live
     // results, whose slug doesn't exist in the local catalog, so
     // revisiting it later from Recently Viewed would just hit
     // "Entry not found".
-    if (widget.entry.platform != 'prowlarr') {
+    if (!widget.entry.isLive) {
       WidgetsBinding.instance.addPostFrameCallback((debugLabel) {
         ref
             .read(recentlyViewedProvider.notifier)
@@ -336,10 +336,10 @@ class _EntryDetailContentState extends ConsumerState<_EntryDetailContent> {
               const SizedBox(height: 16),
 
               // Multi-disc set / catalog metadata: neither concept applies
-              // to live (Prowlarr) results, whose slug isn't in the local
+              // to live results, whose slug isn't in the local
               // catalog DB — skip the (otherwise harmless, just wasted)
               // queries for those.
-              if (entry.platform != 'prowlarr') ...[
+              if (!entry.isLive) ...[
                 ref.watch(entryGroupProvider(entry.slug)).maybeWhen(
                       data: (group) =>
                           (group != null && group.isDisc && group.members.length > 1)

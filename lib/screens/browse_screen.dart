@@ -481,7 +481,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => entry.platform == 'prowlarr'
+        builder: (context) => entry.isLive
             ? EntryDetailScreen(slug: entry.slug, liveEntry: entry)
             : EntryDetailScreen(slug: entry.slug),
       ),
@@ -489,7 +489,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   }
 
   // Recently Viewed only stores slug/title/platform/boxartUrl, not a full
-  // entry with links — live (Prowlarr) results can't be reconstructed
+  // entry with links — live results can't be reconstructed
   // from that alone, so revisiting one from here is a known gap (same
   // "Entry not found" outcome as any catalog entry that's since
   // disappeared) rather than something worth a live re-fetch-by-slug path.

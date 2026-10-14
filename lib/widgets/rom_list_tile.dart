@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/models.dart';
 import '../utils/utils.dart';
+import 'live_source_badge.dart';
 import 'retro_achievements_badge.dart';
 
 class RomListTile extends StatelessWidget {
@@ -66,8 +67,8 @@ class RomListTile extends StatelessWidget {
         children: [
           _PlatformChip(platform: entry.platform),
           const SizedBox(width: 4),
-          if (entry.platform == 'prowlarr') ...[
-            const _LiveSourceBadge(),
+          if (entry.isLive) ...[
+            LiveSourceBadge(sourceId: entry.liveSource!),
             const SizedBox(width: 4),
           ],
           if (isDownloaded) ...[
@@ -109,39 +110,6 @@ class _PlatformChip extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.bold,
           color: Theme.of(context).colorScheme.onPrimaryContainer,
-        ),
-      ),
-    );
-  }
-}
-
-class _LiveSourceBadge extends StatelessWidget {
-  const _LiveSourceBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Live result from Prowlarr, not the offline catalog',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: Colors.blue.shade100,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.podcasts, size: 10, color: Colors.blue.shade700),
-            const SizedBox(width: 2),
-            Text(
-              'Live',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue.shade700,
-              ),
-            ),
-          ],
         ),
       ),
     );

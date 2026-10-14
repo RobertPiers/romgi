@@ -36,6 +36,8 @@ void main() {
       expect(entry, isNotNull);
       expect(entry!.title, 'Some.Game.Title');
       expect(entry.platform, 'prowlarr');
+      expect(entry.liveSource, 'prowlarr');
+      expect(entry.isLive, isTrue);
       expect(entry.links, hasLength(1));
 
       final link = entry.links.first;
