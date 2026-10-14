@@ -470,6 +470,21 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
 
+                SwitchListTile(
+                  secondary: const Icon(Icons.apple),
+                  title: const Text('Search Macintosh Garden'),
+                  subtitle: const Text(
+                    'Include classic Mac apps and games (live, via Internet '
+                    'Archive) alongside catalog results',
+                  ),
+                  value: settings.macintoshGardenSearchEnabled,
+                  onChanged: (value) {
+                    ref
+                        .read(settingsProvider.notifier)
+                        .setMacintoshGardenSearchEnabled(value);
+                  },
+                ),
+
                 const Divider(height: 32),
 
                 _SectionHeader(title: 'About'),

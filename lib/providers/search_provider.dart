@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
 import '../services/live_search_source.dart';
+import '../services/macintosh_garden_service.dart';
 import '../services/prowlarr_service.dart';
 import '../services/rom_database_service.dart';
 import 'api_provider.dart';
+import 'macintosh_garden_provider.dart';
 import 'prowlarr_provider.dart';
 import 'settings_provider.dart';
 
@@ -194,6 +196,8 @@ final searchProvider = StateNotifierProvider<SearchNotifier, SearchState>((
           ref.watch(prowlarrServiceProvider),
           baseUrl: settings.prowlarrBaseUrl,
         ),
+      if (settings.macintoshGardenSearchEnabled)
+        MacintoshGardenLiveSource(ref.watch(macintoshGardenServiceProvider)),
     ],
   );
 });

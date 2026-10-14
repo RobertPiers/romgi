@@ -25,6 +25,7 @@ class SettingsState {
   final VitaDownloadMode vitaDownloadMode;
   final bool prowlarrSearchEnabled;
   final String prowlarrBaseUrl;
+  final bool macintoshGardenSearchEnabled;
   final String? threeDsBoot9Path;
   final String? threeDsSeeddbPath;
   final bool isLoading;
@@ -46,6 +47,7 @@ class SettingsState {
     this.vitaDownloadMode = VitaDownloadMode.pkgOnly,
     this.prowlarrSearchEnabled = false,
     this.prowlarrBaseUrl = '',
+    this.macintoshGardenSearchEnabled = false,
     this.threeDsBoot9Path,
     this.threeDsSeeddbPath,
     this.isLoading = false,
@@ -74,6 +76,7 @@ class SettingsState {
     VitaDownloadMode? vitaDownloadMode,
     bool? prowlarrSearchEnabled,
     String? prowlarrBaseUrl,
+    bool? macintoshGardenSearchEnabled,
     String? threeDsBoot9Path,
     bool clearThreeDsBoot9Path = false,
     String? threeDsSeeddbPath,
@@ -102,6 +105,8 @@ class SettingsState {
       prowlarrSearchEnabled:
           prowlarrSearchEnabled ?? this.prowlarrSearchEnabled,
       prowlarrBaseUrl: prowlarrBaseUrl ?? this.prowlarrBaseUrl,
+      macintoshGardenSearchEnabled:
+          macintoshGardenSearchEnabled ?? this.macintoshGardenSearchEnabled,
       threeDsBoot9Path: clearThreeDsBoot9Path
           ? null
           : (threeDsBoot9Path ?? this.threeDsBoot9Path),
@@ -146,6 +151,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   static const String _keyVitaDownloadMode = 'vita_download_mode';
   static const String _keyProwlarrSearchEnabled = 'prowlarr_search_enabled';
   static const String _keyProwlarrBaseUrl = 'prowlarr_base_url';
+  static const String _keyMacintoshGardenSearchEnabled =
+      'macintosh_garden_search_enabled';
   static const String _keyThreeDsBoot9Path = 'three_ds_boot9_path';
   static const String _keyThreeDsSeeddbPath = 'three_ds_seeddb_path';
 
@@ -186,6 +193,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     final prowlarrSearchEnabled =
         prefs.getBool(_keyProwlarrSearchEnabled) ?? false;
     final prowlarrBaseUrl = prefs.getString(_keyProwlarrBaseUrl) ?? '';
+    final macintoshGardenSearchEnabled =
+        prefs.getBool(_keyMacintoshGardenSearchEnabled) ?? false;
     final threeDsBoot9Path = prefs.getString(_keyThreeDsBoot9Path);
     final threeDsSeeddbPath = prefs.getString(_keyThreeDsSeeddbPath);
 
@@ -220,6 +229,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       vitaDownloadMode: vitaDownloadMode,
       prowlarrSearchEnabled: prowlarrSearchEnabled,
       prowlarrBaseUrl: prowlarrBaseUrl,
+      macintoshGardenSearchEnabled: macintoshGardenSearchEnabled,
       threeDsBoot9Path: threeDsBoot9Path,
       threeDsSeeddbPath: threeDsSeeddbPath,
       isLoading: false,
@@ -341,6 +351,12 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(prowlarrBaseUrl: value.trim());
   }
 
+  Future<void> setMacintoshGardenSearchEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyMacintoshGardenSearchEnabled, value);
+    state = state.copyWith(macintoshGardenSearchEnabled: value);
+  }
+
   Future<void> setThreeDsBoot9Path(String? path) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -388,6 +404,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await prefs.remove(_keyVitaDownloadMode);
     await prefs.remove(_keyProwlarrSearchEnabled);
     await prefs.remove(_keyProwlarrBaseUrl);
+    await prefs.remove(_keyMacintoshGardenSearchEnabled);
     await prefs.remove(_keyThreeDsBoot9Path);
     await prefs.remove(_keyThreeDsSeeddbPath);
 

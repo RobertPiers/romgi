@@ -99,6 +99,7 @@ class PlatformNames {
     'fmt': 'FM Towns',
     'pip': 'Pippin',
     'prowlarr': 'Prowlarr',
+    'mac': 'Classic Macintosh',
     'c64': 'Commodore 64',
     'dos': 'DOS',
     'pc': 'PC',
