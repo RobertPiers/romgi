@@ -8,6 +8,7 @@ import '../services/metadata/metadata_provider.dart';
 import '../services/rom_database_service.dart';
 import '../services/storage_service.dart';
 import '../utils/utils.dart';
+import 'bios_screen.dart';
 import 'internet_archive_login_screen.dart';
 import 'sources_screen.dart';
 
@@ -127,9 +128,10 @@ class SettingsScreen extends ConsumerWidget {
                   title: const Text('boot9.bin'),
                   subtitle: Text(
                     settings.threeDsBoot9Path ??
-                        'Not set — required to decrypt 3DS games for '
-                            'emulators like Azahar that refuse to decrypt '
-                            'themselves',
+                        'Not set — uses boot9.bin from your BIOS folder when '
+                            'it is there (BIOS and System Files below); '
+                            'required to decrypt 3DS games for emulators '
+                            'like Azahar that refuse to decrypt themselves',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -151,7 +153,9 @@ class SettingsScreen extends ConsumerWidget {
                   title: const Text('seeddb.bin'),
                   subtitle: Text(
                     settings.threeDsSeeddbPath ??
-                        'Not set — only needed for the subset of 3DS games '
+                        'Not set — uses seeddb.bin from your BIOS folder '
+                            'when it is there; only needed for the subset of '
+                            '3DS games '
                             'that use seed crypto (games released after a '
                             'later system update)',
                     maxLines: 2,
@@ -169,6 +173,11 @@ class SettingsScreen extends ConsumerWidget {
                       : null,
                   onTap: () => _pickSeeddbFile(context, ref),
                 ),
+
+                const Divider(height: 32),
+
+                _SectionHeader(title: 'BIOS and System Files'),
+                const _BiosSection(),
 
                 const Divider(height: 32),
 
@@ -1808,5 +1817,147 @@ class _DebridSectionState extends ConsumerState<_DebridSection> {
         ],
       ],
     );
+  }
+}
+
+/// Where BIOS and system files go and where they come from: the options of
+/// the gamegrab-sources BIOS plugin, with its defaults.
+class _BiosSection extends ConsumerWidget {
+  const _BiosSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final folder = ref.watch(biosFolderProvider).valueOrNull;
+
+    return Column(
+      children: [
+        ListTile(
+          leading: const Icon(Icons.memory),
+          title: const Text('BIOS files by system'),
+          subtitle: const Text(
+            'See which BIOS, firmware and key files each system needs, '
+            'which are in your BIOS folder, and get the missing ones',
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BiosScreen()),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.folder_special),
+          title: const Text('BIOS folder'),
+          subtitle: Text(
+            settings.biosFolderPath ??
+                '${folder ?? 'bios in the download folder'} (default). Point '
+                    'it at RetroArch\'s system folder or your emulator\'s.',
+          ),
+          trailing: settings.biosFolderPath != null
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () => ref
+                      .read(settingsProvider.notifier)
+                      .setBiosFolderPath(null),
+                )
+              : null,
+          onTap: () async {
+            final result = await FilePicker.platform.getDirectoryPath();
+            if (result != null) {
+              await ref.read(settingsProvider.notifier).setBiosFolderPath(result);
+            }
+          },
+        ),
+        SwitchListTile(
+          secondary: const Icon(Icons.cloud_download),
+          title: const Text('Use retrobios'),
+          subtitle: const Text(
+            'Single files on GitHub, each checked by SHA-256 after download',
+          ),
+          value: settings.biosRetrobiosEnabled,
+          onChanged: (value) => ref
+              .read(settingsProvider.notifier)
+              .setBiosRetrobiosEnabled(value),
+        ),
+        ListTile(
+          leading: const Icon(Icons.account_balance),
+          title: const Text('More Internet Archive items'),
+          subtitle: Text(
+            settings.biosIaItems.isEmpty
+                ? 'None. Add item ids whose files should be offered when their '
+                    'MD5 or name matches a needed file'
+                : settings.biosIaItems.join(', '),
+          ),
+          onTap: () => _editList(
+            context,
+            title: 'Internet Archive items',
+            hint: 'One item id per line',
+            values: settings.biosIaItems,
+            onSave: (values) =>
+                ref.read(settingsProvider.notifier).setBiosIaItems(values),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.link),
+          title: const Text('Your own addresses'),
+          subtitle: Text(
+            settings.biosUrlTemplates.isEmpty
+                ? 'None. https address templates where {file}, {system} and '
+                    '{md5} stand for the file name, system and its MD5'
+                : settings.biosUrlTemplates.join('\n'),
+          ),
+          onTap: () => _editList(
+            context,
+            title: 'Your own addresses',
+            hint: 'One https address per line, e.g.\n'
+                'https://example.org/bios/{system}/{file}',
+            values: settings.biosUrlTemplates,
+            onSave: (values) => ref
+                .read(settingsProvider.notifier)
+                .setBiosUrlTemplates(values),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _editList(
+    BuildContext context, {
+    required String title,
+    required String hint,
+    required List<String> values,
+    required Future<void> Function(List<String>) onSave,
+  }) async {
+    final controller = TextEditingController(text: values.join('\n'));
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          minLines: 3,
+          maxLines: 8,
+          decoration: InputDecoration(hintText: hint),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (saved == true) {
+      await onSave(controller.text
+          .split('\n')
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList());
+    }
+    controller.dispose();
   }
 }

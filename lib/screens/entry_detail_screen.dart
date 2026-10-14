@@ -8,6 +8,7 @@ import '../services/download_service.dart';
 import '../services/link_resolver.dart';
 import '../utils/utils.dart';
 import '../widgets/widgets.dart';
+import 'bios_screen.dart';
 import 'internet_archive_login_screen.dart';
 
 final entryProvider = FutureProvider.family<RomEntry?, String>((
@@ -339,6 +340,8 @@ class _EntryDetailContentState extends ConsumerState<_EntryDetailContent> {
               // to live results, whose slug isn't in the local
               // catalog DB — skip the (otherwise harmless, just wasted)
               // queries for those.
+              SystemFilesRow(platform: entry.platform),
+
               if (!entry.isLive) ...[
                 ref.watch(entryGroupProvider(entry.slug)).maybeWhen(
                       data: (group) =>

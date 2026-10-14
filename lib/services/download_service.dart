@@ -101,6 +101,11 @@ class DownloadService {
   VitaDownloadMode Function() getVitaDownloadMode = () => VitaDownloadMode.pkgOnly;
   String? Function() getThreeDsBoot9Path = () => null;
   String? Function() getThreeDsSeeddbPath = () => null;
+
+  /// A 3DS system file (`boot9.bin`, `seeddb.bin`) in the BIOS folder, used
+  /// when no file was picked for it in Settings.
+  Future<String?> Function(String fileName) findThreeDsSystemFile =
+      (_) async => null;
   final Dio _dio;
   Dio? _nativeDio;
   final _uuid = const Uuid();
@@ -1940,7 +1945,8 @@ class DownloadService {
   }
 
   /// After a 3DS archive extracts, decrypt the resulting `.3ds` in place if
-  /// a boot9 keys file is configured, so emulators like Azahar (which
+  /// a boot9 keys file is configured (picked in Settings, or `boot9.bin` in
+  /// the BIOS folder's 3DS place), so emulators like Azahar (which
   /// refuse to decrypt at load time) can use it directly. A seeddb.bin
   /// (also user-supplied) is passed along if configured, needed only for
   /// the subset of titles using seed crypto. Best-effort and never fatal to
@@ -1949,10 +1955,13 @@ class DownloadService {
   /// is still a usable (if Azahar-incompatible) file.
   Future<void> _maybeDecrypt3ds(String path, String platform) async {
     if (platform != '3ds' && platform != 'n3ds') return;
-    final boot9Path = getThreeDsBoot9Path();
+    final boot9Path =
+        getThreeDsBoot9Path() ?? await findThreeDsSystemFile('boot9.bin');
     if (boot9Path == null) return;
+    final seeddbPath =
+        getThreeDsSeeddbPath() ?? await findThreeDsSystemFile('seeddb.bin');
     try {
-      await _ncchDecrypt.decryptCci(path, boot9Path, getThreeDsSeeddbPath());
+      await _ncchDecrypt.decryptCci(path, boot9Path, seeddbPath);
     } catch (_) {
       // Best-effort — see doc comment above.
     }

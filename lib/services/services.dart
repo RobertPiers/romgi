@@ -1,3 +1,4 @@
+export 'bios_service.dart';
 export 'database_service.dart';
 export 'debrid/debrid_provider.dart';
 export 'debrid/debrid_registry.dart';

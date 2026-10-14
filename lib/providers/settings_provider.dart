@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/bios_service.dart'
+    show BiosService, BiosSourceSettings;
 import '../services/download_service.dart' show VitaDownloadMode;
 
 export '../services/download_service.dart' show VitaDownloadMode;
@@ -28,6 +30,13 @@ class SettingsState {
   final bool macintoshGardenSearchEnabled;
   final String? threeDsBoot9Path;
   final String? threeDsSeeddbPath;
+
+  /// The folder BIOS and system files go in (RetroArch's system folder or
+  /// your emulator's); null means `bios` inside the download folder.
+  final String? biosFolderPath;
+  final bool biosRetrobiosEnabled;
+  final List<String> biosIaItems;
+  final List<String> biosUrlTemplates;
   final bool isLoading;
 
   const SettingsState({
@@ -50,6 +59,10 @@ class SettingsState {
     this.macintoshGardenSearchEnabled = false,
     this.threeDsBoot9Path,
     this.threeDsSeeddbPath,
+    this.biosFolderPath,
+    this.biosRetrobiosEnabled = true,
+    this.biosIaItems = const [],
+    this.biosUrlTemplates = const [],
     this.isLoading = false,
   });
 
@@ -81,6 +94,11 @@ class SettingsState {
     bool clearThreeDsBoot9Path = false,
     String? threeDsSeeddbPath,
     bool clearThreeDsSeeddbPath = false,
+    String? biosFolderPath,
+    bool clearBiosFolderPath = false,
+    bool? biosRetrobiosEnabled,
+    List<String>? biosIaItems,
+    List<String>? biosUrlTemplates,
     bool? isLoading,
   }) {
     return SettingsState(
@@ -113,9 +131,21 @@ class SettingsState {
       threeDsSeeddbPath: clearThreeDsSeeddbPath
           ? null
           : (threeDsSeeddbPath ?? this.threeDsSeeddbPath),
+      biosFolderPath: clearBiosFolderPath
+          ? null
+          : (biosFolderPath ?? this.biosFolderPath),
+      biosRetrobiosEnabled: biosRetrobiosEnabled ?? this.biosRetrobiosEnabled,
+      biosIaItems: biosIaItems ?? this.biosIaItems,
+      biosUrlTemplates: biosUrlTemplates ?? this.biosUrlTemplates,
       isLoading: isLoading ?? this.isLoading,
     );
   }
+
+  BiosSourceSettings get biosSources => BiosSourceSettings(
+        retrobiosEnabled: biosRetrobiosEnabled,
+        iaItems: biosIaItems,
+        urlTemplates: biosUrlTemplates,
+      );
 
   String? getPathForPlatform(String platform) {
     return platformPaths[platform] ?? defaultDownloadPath;
@@ -155,6 +185,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       'macintosh_garden_search_enabled';
   static const String _keyThreeDsBoot9Path = 'three_ds_boot9_path';
   static const String _keyThreeDsSeeddbPath = 'three_ds_seeddb_path';
+  static const String _keyBiosFolderPath = 'bios_folder_path';
+  static const String _keyBiosRetrobiosEnabled = 'bios_retrobios_enabled';
+  static const String _keyBiosIaItems = 'bios_ia_items';
+  static const String _keyBiosUrlTemplates = 'bios_url_templates';
 
   SettingsNotifier() : super(const SettingsState()) {
     _loadSettings();
@@ -197,6 +231,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
         prefs.getBool(_keyMacintoshGardenSearchEnabled) ?? false;
     final threeDsBoot9Path = prefs.getString(_keyThreeDsBoot9Path);
     final threeDsSeeddbPath = prefs.getString(_keyThreeDsSeeddbPath);
+    final biosFolderPath = prefs.getString(_keyBiosFolderPath);
+    final biosRetrobiosEnabled =
+        prefs.getBool(_keyBiosRetrobiosEnabled) ?? true;
+    final biosIaItems = prefs.getStringList(_keyBiosIaItems) ?? [];
+    final biosUrlTemplates = prefs.getStringList(_keyBiosUrlTemplates) ?? [];
 
     // Load platform-specific paths
     final platformPaths = <String, String>{};
@@ -232,6 +271,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       macintoshGardenSearchEnabled: macintoshGardenSearchEnabled,
       threeDsBoot9Path: threeDsBoot9Path,
       threeDsSeeddbPath: threeDsSeeddbPath,
+      biosFolderPath: biosFolderPath,
+      biosRetrobiosEnabled: biosRetrobiosEnabled,
+      biosIaItems: biosIaItems,
+      biosUrlTemplates: biosUrlTemplates,
       isLoading: false,
     );
   }
@@ -381,6 +424,47 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     }
   }
 
+  Future<void> setBiosFolderPath(String? path) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (path == null) {
+      await prefs.remove(_keyBiosFolderPath);
+      state = state.copyWith(clearBiosFolderPath: true);
+    } else {
+      await prefs.setString(_keyBiosFolderPath, path);
+      state = state.copyWith(biosFolderPath: path);
+    }
+  }
+
+  Future<void> setBiosRetrobiosEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyBiosRetrobiosEnabled, value);
+    state = state.copyWith(biosRetrobiosEnabled: value);
+  }
+
+  /// Internet Archive item ids, one per entry; invalid ids are dropped.
+  Future<void> setBiosIaItems(List<String> items) async {
+    final cleaned = items
+        .map((i) => i.trim())
+        .where(BiosService.isValidIaItem)
+        .toSet()
+        .toList();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_keyBiosIaItems, cleaned);
+    state = state.copyWith(biosIaItems: cleaned);
+  }
+
+  /// https address templates; anything else is dropped.
+  Future<void> setBiosUrlTemplates(List<String> templates) async {
+    final cleaned = templates
+        .map((t) => t.trim())
+        .where((t) => t.startsWith('https://'))
+        .toList();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_keyBiosUrlTemplates, cleaned);
+    state = state.copyWith(biosUrlTemplates: cleaned);
+  }
+
   Future<void> setMaxConcurrentDownloads(int value) async {
     final clamped = value.clamp(0, 10);
     final prefs = await SharedPreferences.getInstance();
@@ -407,6 +491,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await prefs.remove(_keyMacintoshGardenSearchEnabled);
     await prefs.remove(_keyThreeDsBoot9Path);
     await prefs.remove(_keyThreeDsSeeddbPath);
+    await prefs.remove(_keyBiosFolderPath);
+    await prefs.remove(_keyBiosRetrobiosEnabled);
+    await prefs.remove(_keyBiosIaItems);
+    await prefs.remove(_keyBiosUrlTemplates);
 
     for (final key in prefs.getKeys().toList()) {
       if (key.startsWith(_keyPlatformPaths) ||
