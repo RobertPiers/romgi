@@ -101,6 +101,25 @@ class SettingsScreen extends ConsumerWidget {
 
                 const Divider(height: 32),
 
+                _SectionHeader(title: 'PS3'),
+
+                SwitchListTile(
+                  secondary: const Icon(Icons.key),
+                  title: const Text('Download License with Game'),
+                  subtitle: const Text(
+                    'Also fetch the matching RAP license file and keep it '
+                    'with the pkg in a per-game folder, ready for RPCS3',
+                  ),
+                  value: settings.ps3DownloadRap,
+                  onChanged: (value) {
+                    ref
+                        .read(settingsProvider.notifier)
+                        .setPs3DownloadRap(value);
+                  },
+                ),
+
+                const Divider(height: 32),
+
                 _SectionHeader(title: '3DS Decryption'),
 
                 ListTile(

@@ -308,6 +308,7 @@ final downloadProvider = StateNotifierProvider<DownloadNotifier, DownloadState>(
         debridEnabled:
             settings.debridEnabled && debridService.isConfiguredSync(),
       );
+  service.getPs3DownloadRap = () => settings.ps3DownloadRap;
   service.getVitaDownloadMode = () => settings.vitaDownloadMode;
   service.getThreeDsBoot9Path = () => settings.threeDsBoot9Path;
   service.getThreeDsSeeddbPath = () => settings.threeDsSeeddbPath;

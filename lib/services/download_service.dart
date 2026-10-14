@@ -97,6 +97,7 @@ class DownloadService {
   final DebridService? _debrid;
   late final PlaylistWriter _playlistWriter;
   bool Function(String platform) shouldExtractForPlatform = (_) => true;
+  bool Function() getPs3DownloadRap = () => false;
   VitaDownloadMode Function() getVitaDownloadMode = () => VitaDownloadMode.pkgOnly;
   String? Function() getThreeDsBoot9Path = () => null;
   String? Function() getThreeDsSeeddbPath = () => null;
@@ -1003,7 +1004,10 @@ class DownloadService {
         );
       }
     } else {
-      final finalPath = await _maybeHandleVitaLicense(updatedTask, downloadPath);
+      final finalPath = await _maybeHandleVitaLicense(
+        updatedTask,
+        await _maybeHandlePs3License(updatedTask, downloadPath),
+      );
       updatedTask = updatedTask.copyWith(
         status: DownloadStatus.completed,
         progress: 1.0,
@@ -1094,7 +1098,10 @@ class DownloadService {
           return;
         }
       } else if (existingPath == destPath) {
-        finalPath = await _maybeHandleVitaLicense(task, destPath);
+        finalPath = await _maybeHandleVitaLicense(
+          task,
+          await _maybeHandlePs3License(task, destPath),
+        );
       }
       final completed = task.copyWith(
         status: DownloadStatus.completed,
@@ -1288,7 +1295,10 @@ class DownloadService {
         return;
       }
     } else {
-      finalPath = await _maybeHandleVitaLicense(task, dest);
+      finalPath = await _maybeHandleVitaLicense(
+        task,
+        await _maybeHandlePs3License(task, dest),
+      );
     }
 
     final completed = task.copyWith(
@@ -1580,6 +1590,46 @@ class DownloadService {
       await _db.updateDownload(updated);
       _downloadController.add(updated);
       _processQueue();
+    }
+  }
+
+  bool _isPs3Pkg(DownloadTask task) =>
+      task.platform == 'ps3' &&
+      task.link.filename.toLowerCase().endsWith('.pkg');
+
+  /// After a PS3 pkg finishes downloading, fetch the sibling RAP license
+  /// link (if the setting is on) and keep both files together in a
+  /// per-game subfolder — RPCS3 needs no decryption, just the pkg and its
+  /// paired .rap sitting together. Best-effort and never fatal to the
+  /// download: if the setting is off, there's no RAP link for this title,
+  /// or the fetch fails, the pkg is simply left where it is.
+  Future<String> _maybeHandlePs3License(DownloadTask task, String pkgPath) async {
+    if (!getPs3DownloadRap() || !_isPs3Pkg(task)) return pkgPath;
+
+    try {
+      final entry = await _romDb.getEntry(task.slug);
+      final rapLink =
+          entry?.links.where((l) => l.type == 'RAP file').firstOrNull;
+      if (rapLink == null) return pkgPath;
+
+      final response = await _dio.get<List<int>>(
+        rapLink.url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final rapBytes = response.data;
+      if (rapBytes == null || rapBytes.isEmpty) return pkgPath;
+
+      final platformDir = await _storage.getPlatformDirectory(task.platform);
+      final baseName = p.basenameWithoutExtension(pkgPath);
+      final gameDir = Directory(p.join(platformDir.path, baseName));
+      if (!await gameDir.exists()) await gameDir.create(recursive: true);
+      final movedPkgPath = p.join(gameDir.path, p.basename(pkgPath));
+      await File(pkgPath).rename(movedPkgPath);
+      await File(p.join(gameDir.path, rapLink.filename)).writeAsBytes(rapBytes);
+      return gameDir.path;
+    } catch (_) {
+      // Best-effort — the raw pkg is still a usable download on its own.
+      return pkgPath;
     }
   }
 
