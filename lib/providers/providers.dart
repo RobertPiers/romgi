@@ -7,6 +7,7 @@ export 'library_provider.dart';
 export 'metadata_provider.dart';
 export 'navigation_provider.dart';
 export 'platforms_provider.dart';
+export 'prowlarr_provider.dart';
 export 'recently_viewed_provider.dart';
 export 'regions_provider.dart';
 export 'search_provider.dart';

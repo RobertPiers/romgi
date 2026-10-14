@@ -10,6 +10,7 @@ export 'link_resolver.dart';
 export 'metadata/metadata_provider.dart';
 export 'metadata/metadata_registry.dart';
 export 'notification_service.dart';
+export 'prowlarr_service.dart';
 export 'rom_database_service.dart';
 export 'seven_zip_service.dart';
 export 'sources_service.dart';

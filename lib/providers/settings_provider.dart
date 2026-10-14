@@ -23,6 +23,8 @@ class SettingsState {
   final bool metadataEnabled;
   final bool ps3DownloadRap;
   final VitaDownloadMode vitaDownloadMode;
+  final bool prowlarrSearchEnabled;
+  final String prowlarrBaseUrl;
   final String? threeDsBoot9Path;
   final String? threeDsSeeddbPath;
   final bool isLoading;
@@ -42,6 +44,8 @@ class SettingsState {
     this.metadataEnabled = true,
     this.ps3DownloadRap = false,
     this.vitaDownloadMode = VitaDownloadMode.pkgOnly,
+    this.prowlarrSearchEnabled = false,
+    this.prowlarrBaseUrl = '',
     this.threeDsBoot9Path,
     this.threeDsSeeddbPath,
     this.isLoading = false,
@@ -68,6 +72,8 @@ class SettingsState {
     bool? metadataEnabled,
     bool? ps3DownloadRap,
     VitaDownloadMode? vitaDownloadMode,
+    bool? prowlarrSearchEnabled,
+    String? prowlarrBaseUrl,
     String? threeDsBoot9Path,
     bool clearThreeDsBoot9Path = false,
     String? threeDsSeeddbPath,
@@ -93,6 +99,9 @@ class SettingsState {
       metadataEnabled: metadataEnabled ?? this.metadataEnabled,
       ps3DownloadRap: ps3DownloadRap ?? this.ps3DownloadRap,
       vitaDownloadMode: vitaDownloadMode ?? this.vitaDownloadMode,
+      prowlarrSearchEnabled:
+          prowlarrSearchEnabled ?? this.prowlarrSearchEnabled,
+      prowlarrBaseUrl: prowlarrBaseUrl ?? this.prowlarrBaseUrl,
       threeDsBoot9Path: clearThreeDsBoot9Path
           ? null
           : (threeDsBoot9Path ?? this.threeDsBoot9Path),
@@ -135,6 +144,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   static const String _keyMetadataEnabled = 'metadata_enabled';
   static const String _keyPs3DownloadRap = 'ps3_download_rap';
   static const String _keyVitaDownloadMode = 'vita_download_mode';
+  static const String _keyProwlarrSearchEnabled = 'prowlarr_search_enabled';
+  static const String _keyProwlarrBaseUrl = 'prowlarr_base_url';
   static const String _keyThreeDsBoot9Path = 'three_ds_boot9_path';
   static const String _keyThreeDsSeeddbPath = 'three_ds_seeddb_path';
 
@@ -172,6 +183,9 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     final vitaDownloadModeIndex = prefs.getInt(_keyVitaDownloadMode) ?? 0;
     final vitaDownloadMode = VitaDownloadMode.values[vitaDownloadModeIndex.clamp(
         0, VitaDownloadMode.values.length - 1)];
+    final prowlarrSearchEnabled =
+        prefs.getBool(_keyProwlarrSearchEnabled) ?? false;
+    final prowlarrBaseUrl = prefs.getString(_keyProwlarrBaseUrl) ?? '';
     final threeDsBoot9Path = prefs.getString(_keyThreeDsBoot9Path);
     final threeDsSeeddbPath = prefs.getString(_keyThreeDsSeeddbPath);
 
@@ -204,6 +218,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       metadataEnabled: metadataEnabled,
       ps3DownloadRap: ps3DownloadRap,
       vitaDownloadMode: vitaDownloadMode,
+      prowlarrSearchEnabled: prowlarrSearchEnabled,
+      prowlarrBaseUrl: prowlarrBaseUrl,
       threeDsBoot9Path: threeDsBoot9Path,
       threeDsSeeddbPath: threeDsSeeddbPath,
       isLoading: false,
@@ -313,6 +329,18 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(vitaDownloadMode: mode);
   }
 
+  Future<void> setProwlarrSearchEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyProwlarrSearchEnabled, value);
+    state = state.copyWith(prowlarrSearchEnabled: value);
+  }
+
+  Future<void> setProwlarrBaseUrl(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyProwlarrBaseUrl, value.trim());
+    state = state.copyWith(prowlarrBaseUrl: value.trim());
+  }
+
   Future<void> setThreeDsBoot9Path(String? path) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -358,6 +386,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await prefs.remove(_keyMetadataEnabled);
     await prefs.remove(_keyPs3DownloadRap);
     await prefs.remove(_keyVitaDownloadMode);
+    await prefs.remove(_keyProwlarrSearchEnabled);
+    await prefs.remove(_keyProwlarrBaseUrl);
     await prefs.remove(_keyThreeDsBoot9Path);
     await prefs.remove(_keyThreeDsSeeddbPath);
 

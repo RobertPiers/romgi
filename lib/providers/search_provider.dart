@@ -1,8 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
+import '../services/prowlarr_service.dart';
 import '../services/rom_database_service.dart';
 import 'api_provider.dart';
+import 'prowlarr_provider.dart';
+import 'settings_provider.dart';
 
 class SearchState {
   final String query;
@@ -48,8 +51,18 @@ class SearchState {
 
 class SearchNotifier extends StateNotifier<SearchState> {
   final RomDatabaseService _db;
+  final ProwlarrService _prowlarr;
+  final bool _prowlarrSearchEnabled;
+  final String _prowlarrBaseUrl;
 
-  SearchNotifier(this._db) : super(const SearchState());
+  SearchNotifier(
+    this._db,
+    this._prowlarr, {
+    bool prowlarrSearchEnabled = false,
+    String prowlarrBaseUrl = '',
+  })  : _prowlarrSearchEnabled = prowlarrSearchEnabled,
+        _prowlarrBaseUrl = prowlarrBaseUrl,
+        super(const SearchState());
 
   Future<void> search({String? query}) async {
     state = state.copyWith(
@@ -59,19 +72,59 @@ class SearchNotifier extends StateNotifier<SearchState> {
     );
 
     try {
-      final result = await _db.search(
-        query: state.query.isEmpty ? null : state.query,
-        platforms: state.selectedPlatforms.isEmpty
-            ? null
-            : state.selectedPlatforms,
-        regions: state.selectedRegions.isEmpty ? null : state.selectedRegions,
-        retroAchievementsOnly: state.retroAchievementsOnly,
-        page: 1,
-      );
+      final effectiveQuery = state.query.isEmpty ? null : state.query;
+      // Live Prowlarr results only apply to the first page of a query
+      // search — there's no live equivalent of pagination for a source
+      // that's just a single request against whatever indexers the
+      // user's Prowlarr instance has configured.
+      final wantsLive = _prowlarrSearchEnabled &&
+          effectiveQuery != null &&
+          _prowlarrBaseUrl.isNotEmpty;
+
+      final results = await Future.wait([
+        _db.search(
+          query: effectiveQuery,
+          platforms: state.selectedPlatforms.isEmpty
+              ? null
+              : state.selectedPlatforms,
+          regions:
+              state.selectedRegions.isEmpty ? null : state.selectedRegions,
+          retroAchievementsOnly: state.retroAchievementsOnly,
+          page: 1,
+        ),
+        wantsLive ? _searchProwlarr(effectiveQuery) : Future.value(<RomEntry>[]),
+      ]);
+
+      final localResult = results[0] as SearchResult;
+      final liveEntries = results[1] as List<RomEntry>;
+      final result = liveEntries.isEmpty
+          ? localResult
+          : SearchResult(
+              entries: [...localResult.entries, ...liveEntries],
+              totalResults: localResult.totalResults + liveEntries.length,
+              currentPage: localResult.currentPage,
+              totalPages: localResult.totalPages,
+              currentResults: localResult.currentResults + liveEntries.length,
+            );
 
       state = state.copyWith(result: result, isLoading: false);
     } catch (error) {
       state = state.copyWith(error: error, isLoading: false);
+    }
+  }
+
+  Future<List<RomEntry>> _searchProwlarr(String query) async {
+    try {
+      final apiKey = await _prowlarr.getApiKey();
+      if (apiKey == null || apiKey.isEmpty) return [];
+      return await _prowlarr.search(
+        baseUrl: _prowlarrBaseUrl,
+        apiKey: apiKey,
+        query: query,
+      );
+    } catch (_) {
+      // Best-effort — a Prowlarr hiccup shouldn't fail the whole search.
+      return [];
     }
   }
 
@@ -140,6 +193,13 @@ final searchProvider = StateNotifierProvider<SearchNotifier, SearchState>((
   ref,
 ) {
   final db = ref.watch(romDatabaseProvider);
+  final prowlarr = ref.watch(prowlarrServiceProvider);
+  final settings = ref.watch(settingsProvider);
 
-  return SearchNotifier(db);
+  return SearchNotifier(
+    db,
+    prowlarr,
+    prowlarrSearchEnabled: settings.prowlarrSearchEnabled,
+    prowlarrBaseUrl: settings.prowlarrBaseUrl,
+  );
 });

@@ -177,6 +177,11 @@ class SettingsScreen extends ConsumerWidget {
 
                 const Divider(height: 32),
 
+                _SectionHeader(title: 'Prowlarr'),
+                const _ProwlarrSection(),
+
+                const Divider(height: 32),
+
                 _SectionHeader(title: 'Game Metadata'),
                 const _MetadataSection(),
 
@@ -1410,6 +1415,209 @@ class _MetadataProviderTileState extends ConsumerState<_MetadataProviderTile> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
+      ],
+    );
+  }
+}
+
+class _ProwlarrSection extends ConsumerStatefulWidget {
+  const _ProwlarrSection();
+
+  @override
+  ConsumerState<_ProwlarrSection> createState() => _ProwlarrSectionState();
+}
+
+class _ProwlarrSectionState extends ConsumerState<_ProwlarrSection> {
+  final _urlController = TextEditingController();
+  final _keyController = TextEditingController();
+  bool _obscure = true;
+  bool _testing = false;
+  String? _message;
+  bool? _hasKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _urlController.text = ref.read(settingsProvider).prowlarrBaseUrl;
+    ref.read(prowlarrServiceProvider).getApiKey().then((key) {
+      if (mounted) setState(() => _hasKey = key != null && key.isNotEmpty);
+    });
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    _keyController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveUrl() async {
+    await ref
+        .read(settingsProvider.notifier)
+        .setProwlarrBaseUrl(_urlController.text);
+    if (mounted) setState(() => _message = 'Base URL saved');
+  }
+
+  Future<void> _saveKey() async {
+    final key = _keyController.text.trim();
+    if (key.isEmpty) return;
+    await ref.read(prowlarrServiceProvider).setApiKey(key);
+    _keyController.clear();
+    if (mounted) {
+      setState(() {
+        _hasKey = true;
+        _message = 'API key saved';
+      });
+    }
+  }
+
+  Future<void> _clear() async {
+    await ref.read(prowlarrServiceProvider).clearApiKey();
+    if (mounted) {
+      setState(() {
+        _hasKey = false;
+        _message = 'API key cleared';
+      });
+    }
+  }
+
+  Future<void> _test() async {
+    setState(() {
+      _testing = true;
+      _message = null;
+    });
+    final baseUrl = ref.read(settingsProvider).prowlarrBaseUrl;
+    final apiKey = await ref.read(prowlarrServiceProvider).getApiKey();
+    String result;
+    if (baseUrl.isEmpty || apiKey == null || apiKey.isEmpty) {
+      result = 'Set a base URL and API key first';
+    } else {
+      try {
+        await ref.read(prowlarrServiceProvider).search(
+              baseUrl: baseUrl,
+              apiKey: apiKey,
+              query: 'test',
+              limit: 1,
+            );
+        result = 'Connected successfully';
+      } catch (e) {
+        result = 'Connection failed: $e';
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _testing = false;
+      _message = result;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = ref.watch(settingsProvider);
+
+    return Column(
+      children: [
+        SwitchListTile(
+          secondary: const Icon(Icons.travel_explore),
+          title: const Text('Search Prowlarr'),
+          subtitle: const Text(
+            'Include live torrent results from your Prowlarr indexers when '
+            'searching (needs a debrid provider above to actually download '
+            'them without leeching)',
+          ),
+          value: settings.prowlarrSearchEnabled,
+          onChanged: (value) => ref
+              .read(settingsProvider.notifier)
+              .setProwlarrSearchEnabled(value),
+        ),
+        if (settings.prowlarrSearchEnabled) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _urlController,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: const InputDecoration(
+                labelText: 'Prowlarr base URL',
+                helperText: 'e.g. http://localhost:9696',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => _saveUrl(),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _keyController,
+              obscureText: _obscure,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: InputDecoration(
+                labelText: 'API key',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                      _obscure ? Icons.visibility : Icons.visibility_off),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                FilledButton(
+                    onPressed: _saveUrl, child: const Text('Save URL')),
+                const SizedBox(width: 8),
+                FilledButton(
+                    onPressed: _saveKey, child: const Text('Save key')),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: _testing ? null : _test,
+                  child: _testing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Test'),
+                ),
+                const Spacer(),
+                if (_hasKey == true)
+                  TextButton(onPressed: _clear, child: const Text('Clear')),
+              ],
+            ),
+          ),
+          if (_hasKey != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(
+                children: [
+                  Icon(
+                    _hasKey! ? Icons.check_circle : Icons.info_outline,
+                    size: 16,
+                    color: _hasKey!
+                        ? Colors.green
+                        : Theme.of(context).colorScheme.outline,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _hasKey! ? 'API key saved' : 'No API key saved',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          if (_message != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                _message!,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+        ],
       ],
     );
   }
