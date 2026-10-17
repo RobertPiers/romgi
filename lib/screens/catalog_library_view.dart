@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
 import '../providers/providers.dart';
+import '../services/download_service.dart';
 import '../services/link_resolver.dart';
 import '../utils/utils.dart';
 import 'entry_detail_screen.dart';
@@ -404,7 +405,7 @@ class _CatalogPlatformCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: platform.artworkUrl!,
                 fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => _placeholder(theme),
+                errorWidget: (context, url, error) => _placeholder(theme),
               )
             else
               _placeholder(theme),
@@ -547,10 +548,10 @@ class _CatalogGameCard extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: entry.boxartUrl!,
       fit: BoxFit.cover,
-      placeholder: (_, __) => const Center(
+      placeholder: (context, url) => const Center(
         child: CircularProgressIndicator(strokeWidth: 2),
       ),
-      errorWidget: (_, __, ___) => const ColoredBox(
+      errorWidget: (context, url, error) => const ColoredBox(
         color: Colors.black12,
         child: Icon(Icons.broken_image_outlined, size: 40),
       ),

@@ -165,7 +165,7 @@ class LocalGameLibraryService {
     try {
       final file = File(filePath);
       if (!await file.exists()) return 0;
-      return file.length();
+      return await file.length();
     } catch (_) {
       return 0;
     }
