@@ -321,6 +321,46 @@ class RomDatabaseService {
     }).toList();
   }
 
+  /// Returns one small record per catalog system.
+  ///
+  /// This is intentionally not implemented by loading entries and grouping
+  /// them in Dart. The catalog can contain hundreds of thousands of rows, so
+  /// SQLite performs the count and chooses one representative artwork while
+  /// the frontend keeps only platform summaries in memory.
+  Future<List<CatalogPlatform>> getCatalogPlatforms() async {
+    final db = await database;
+    final results = await db.rawQuery('''
+      SELECT p.id, p.brand, p.name,
+             COUNT(e.slug) AS game_count,
+             (
+               SELECT e2.boxart_url
+               FROM entries e2
+               WHERE e2.platform = p.id
+                 AND e2.boxart_url IS NOT NULL
+                 AND e2.boxart_url != ''
+               ORDER BY e2.title
+               LIMIT 1
+             ) AS artwork_url
+      FROM platforms p
+      LEFT JOIN entries e ON e.platform = p.id
+      GROUP BY p.id, p.brand, p.name
+      HAVING COUNT(e.slug) > 0
+      ORDER BY p.brand, p.name
+    ''');
+
+    return results
+        .map(
+          (row) => CatalogPlatform(
+            id: row['id'] as String,
+            brand: row['brand'] as String? ?? '',
+            name: row['name'] as String? ?? row['id'] as String,
+            gameCount: row['game_count'] as int? ?? 0,
+            artworkUrl: row['artwork_url'] as String?,
+          ),
+        )
+        .toList(growable: false);
+  }
+
   Future<List<Region>> getRegions() async {
     final db = await database;
     final results = await db.query('regions');

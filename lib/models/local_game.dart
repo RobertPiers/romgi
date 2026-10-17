@@ -13,6 +13,10 @@ class LocalGame {
   final String? artworkPath;
   final String? slug;
   final String? downloadId;
+  final bool favorite;
+  final bool completed;
+  final DateTime? lastPlayed;
+  final int playCount;
 
   const LocalGame({
     required this.id,
@@ -25,7 +29,49 @@ class LocalGame {
     this.artworkPath,
     this.slug,
     this.downloadId,
+    this.favorite = false,
+    this.completed = false,
+    this.lastPlayed,
+    this.playCount = 0,
   });
 
   bool get isManagedDownload => downloadId != null;
+
+  LocalGame copyWith({
+    bool? favorite,
+    bool? completed,
+    DateTime? lastPlayed,
+    int? playCount,
+  }) {
+    return LocalGame(
+      id: id,
+      title: title,
+      platform: platform,
+      filePath: filePath,
+      format: format,
+      size: size,
+      boxartUrl: boxartUrl,
+      artworkPath: artworkPath,
+      slug: slug,
+      downloadId: downloadId,
+      favorite: favorite ?? this.favorite,
+      completed: completed ?? this.completed,
+      lastPlayed: lastPlayed ?? this.lastPlayed,
+      playCount: playCount ?? this.playCount,
+    );
+  }
+}
+
+class LocalGameState {
+  final bool favorite;
+  final bool completed;
+  final DateTime? lastPlayed;
+  final int playCount;
+
+  const LocalGameState({
+    this.favorite = false,
+    this.completed = false,
+    this.lastPlayed,
+    this.playCount = 0,
+  });
 }

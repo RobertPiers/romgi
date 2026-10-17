@@ -6,7 +6,7 @@ import '../models/models.dart';
 class DatabaseService {
   static Database? _database;
   static const String _dbName = 'romgi.db';
-  static const int _dbVersion = 8;
+  static const int _dbVersion = 9;
 
   Future<Database> get database async {
     _database ??= await _initDatabase();
@@ -115,6 +115,18 @@ class DatabaseService {
         )
       ''');
     }
+
+    if (oldVersion < 9) {
+      await db.execute('''
+        CREATE TABLE local_game_states (
+          game_key TEXT PRIMARY KEY,
+          favorite INTEGER NOT NULL DEFAULT 0,
+          completed INTEGER NOT NULL DEFAULT 0,
+          last_played INTEGER,
+          play_count INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -198,6 +210,16 @@ class DatabaseService {
         payload TEXT NOT NULL,
         fetched_at INTEGER NOT NULL,
         no_match INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE local_game_states (
+        game_key TEXT PRIMARY KEY,
+        favorite INTEGER NOT NULL DEFAULT 0,
+        completed INTEGER NOT NULL DEFAULT 0,
+        last_played INTEGER,
+        play_count INTEGER NOT NULL DEFAULT 0
       )
     ''');
   }
@@ -488,6 +510,83 @@ class DatabaseService {
     final result = await db.rawQuery('SELECT COUNT(*) as count FROM favorites');
 
     return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  String _localGameKey(String filePath) => normalize(filePath).toLowerCase();
+
+  Future<Map<String, LocalGameState>> getLocalGameStates() async {
+    final db = await database;
+    final rows = await db.query('local_game_states');
+    return {
+      for (final row in rows)
+        row['game_key'] as String: LocalGameState(
+          favorite: (row['favorite'] as int? ?? 0) != 0,
+          completed: (row['completed'] as int? ?? 0) != 0,
+          lastPlayed: row['last_played'] == null
+              ? null
+              : DateTime.fromMillisecondsSinceEpoch(row['last_played'] as int),
+          playCount: row['play_count'] as int? ?? 0,
+        ),
+    };
+  }
+
+  Future<void> setLocalGameFavorite(String filePath, bool value) async {
+    await _updateLocalGameState(_localGameKey(filePath), favorite: value);
+  }
+
+  Future<void> setLocalGameCompleted(String filePath, bool value) async {
+    await _updateLocalGameState(_localGameKey(filePath), completed: value);
+  }
+
+  Future<void> recordLocalGamePlayed(String filePath) async {
+    final db = await database;
+    final key = _localGameKey(filePath);
+    final existing = await db.query(
+      'local_game_states',
+      where: 'game_key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    final current = existing.isEmpty ? 0 : existing.first['play_count'] as int? ?? 0;
+    await db.insert(
+      'local_game_states',
+      {
+        'game_key': key,
+        'last_played': DateTime.now().millisecondsSinceEpoch,
+        'play_count': current + 1,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> _updateLocalGameState(
+    String key, {
+    bool? favorite,
+    bool? completed,
+  }) async {
+    final db = await database;
+    final existing = await db.query(
+      'local_game_states',
+      where: 'game_key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    final row = existing.isEmpty ? <String, Object?>{} : existing.first;
+    await db.insert(
+      'local_game_states',
+      {
+        'game_key': key,
+        'favorite': favorite == null
+            ? (row['favorite'] as int? ?? 0)
+            : (favorite ? 1 : 0),
+        'completed': completed == null
+            ? (row['completed'] as int? ?? 0)
+            : (completed ? 1 : 0),
+        'last_played': row['last_played'],
+        'play_count': row['play_count'] as int? ?? 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<({String payload, DateTime fetchedAt, bool noMatch})?>

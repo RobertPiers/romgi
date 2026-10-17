@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/services.dart';
 import 'download_provider.dart';
+import 'retroarch_provider.dart';
 
 class LibraryState {
   final List<LocalGame> items;

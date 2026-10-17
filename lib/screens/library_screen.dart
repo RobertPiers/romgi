@@ -9,6 +9,7 @@ import '../models/models.dart';
 import '../providers/providers.dart';
 import '../services/storage_service.dart';
 import '../utils/utils.dart';
+import 'catalog_library_view.dart';
 import 'entry_detail_screen.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
@@ -27,7 +28,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -139,9 +140,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  const Icon(Icons.grid_view, size: 18),
+                  const SizedBox(width: 8),
+                  const Text('Collection'),
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   const Icon(Icons.folder, size: 18),
                   const SizedBox(width: 8),
-                  Text('Games (${libraryState.items.length})'),
+                  Text('Installed (${libraryState.items.length})'),
                 ],
               ),
             ),
@@ -161,9 +172,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Local game frontend
+          const CatalogLibraryView(),
           _buildDownloadedTab(libraryState),
-          // Wishlist tab
           _buildWishlistTab(favoritesAsync),
         ],
       ),

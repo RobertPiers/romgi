@@ -1,5 +1,6 @@
 export 'api_provider.dart';
 export 'bios_provider.dart';
+export 'catalog_library_provider.dart';
 export 'debrid_provider.dart';
 export 'download_provider.dart';
 export 'favorites_provider.dart';

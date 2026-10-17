@@ -164,7 +164,8 @@ class LocalGameLibraryService {
   Future<int> _fileSize(String filePath) async {
     try {
       final file = File(filePath);
-      return await file.exists() ? file.length() : 0;
+      if (!await file.exists()) return 0;
+      return file.length();
     } catch (_) {
       return 0;
     }

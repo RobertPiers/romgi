@@ -1,5 +1,6 @@
 export 'bios_screen.dart';
 export 'browse_screen.dart';
+export 'catalog_library_view.dart';
 export 'database_setup_screen.dart';
 export 'downloads_screen.dart';
 export 'entry_detail_screen.dart';
