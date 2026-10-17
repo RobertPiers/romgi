@@ -95,7 +95,7 @@ class MainActivity : FlutterActivity() {
                         var launched = false
                         for (retroArchPackage in packages) {
                             val retro = Intent().apply {
-                                component = ComponentName(retroArchPackage, retroActivity)
+                                setComponent(ComponentName(retroArchPackage, retroActivity))
                                 putExtra("ROM", file.absolutePath)
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -113,8 +113,7 @@ class MainActivity : FlutterActivity() {
                         // the file-provider fallback for those variants.
                         if (!launched) {
                             val view = Intent(Intent.ACTION_VIEW).apply {
-                                data = uri
-                                type = mime
+                                setDataAndType(uri, mime)
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
