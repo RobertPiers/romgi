@@ -71,7 +71,15 @@ void main() {
   test('serves RetroArch directory and platform indexes', () async {
     final base = await server.start();
 
-    expect(await get(base.resolve('cores/.index-dirs')), 'nes\n');
-    expect(await get(base.resolve('cores/nes/.index')), 'Example.zip\n');
+    const directory =
+        'Nintendo%20-%20Nintendo%20Entertainment%20System';
+    expect(
+      await get(base.resolve('cores/.index-dirs')),
+      'Nintendo - Nintendo Entertainment System\n',
+    );
+    expect(
+      await get(base.resolve('cores/$directory/.index')),
+      'Example.zip\n',
+    );
   });
 }

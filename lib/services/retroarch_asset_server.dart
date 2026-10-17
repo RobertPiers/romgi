@@ -108,7 +108,7 @@ class RetroArchAssetServer {
         segments[1] == 'cores') {
       await _serveContent(
         request,
-        platform: segments[2],
+        directory: segments[2],
         filename: segments[3],
       );
       return;
@@ -118,31 +118,49 @@ class RetroArchAssetServer {
   }
 
   Future<void> _serveDirectoryIndex(HttpResponse response) async {
-    final platforms = _catalog.supportedPlatforms.toList()..sort();
-    await _textResponse(response, HttpStatus.ok, '${platforms.join('\n')}\n');
+    final directories = _catalog.supportedPlatforms
+        .map(_directoryNameForPlatform)
+        .whereType<String>()
+        .toList()
+      ..sort();
+    await _textResponse(
+      response,
+      HttpStatus.ok,
+      '${directories.join('\n')}\n',
+    );
   }
 
   Future<void> _redirectToPlatform(
     HttpResponse response,
-    String platform,
+    String directory,
   ) async {
-    if (!_catalog.supportedPlatforms.contains(platform)) {
+    final platform = _platformForDirectory(directory);
+    if (platform == null) {
       await _textResponse(response, HttpStatus.notFound, 'Platform not found');
       return;
     }
 
     response.statusCode = HttpStatus.movedPermanently;
+    final encodedDirectory = Uri.encodeComponent(
+      _directoryNameForPlatform(platform)!,
+    );
     response.headers.set(
       HttpHeaders.locationHeader,
-      '/assets/cores/$platform/',
+      '/assets/cores/$encodedDirectory/',
     );
     await response.close();
   }
 
   Future<void> _servePlatformIndex(
     HttpResponse response,
-    String platform,
+    String directory,
   ) async {
+    final platform = _platformForDirectory(directory);
+    if (platform == null) {
+      await _textResponse(response, HttpStatus.notFound, 'Platform not found');
+      return;
+    }
+
     final contents = await _contentsFor(platform);
     if (contents == null) {
       await _textResponse(response, HttpStatus.notFound, 'Platform not found');
@@ -156,10 +174,16 @@ class RetroArchAssetServer {
 
   Future<void> _serveContent(
     HttpRequest request, {
-    required String platform,
+    required String directory,
     required String filename,
   }) async {
     final response = request.response;
+    final platform = _platformForDirectory(directory);
+    if (platform == null) {
+      await _textResponse(response, HttpStatus.notFound, 'Platform not found');
+      return;
+    }
+
     final contents = await _contentsFor(platform);
     if (contents == null) {
       await _textResponse(response, HttpStatus.notFound, 'Platform not found');
@@ -285,6 +309,21 @@ class RetroArchAssetServer {
       final entries = await _romDb.getEntriesWithLinksForPlatform(platform);
       return _catalog.adaptAll(entries);
     });
+  }
+
+  String? _directoryNameForPlatform(String platform) {
+    final definition = RetroArchPlatformRegistry.forPlatform(platform);
+    return definition?.databaseName;
+  }
+
+  String? _platformForDirectory(String directory) {
+    for (final platform in _catalog.supportedPlatforms) {
+      final definition = RetroArchPlatformRegistry.forPlatform(platform);
+      if (definition?.databaseName == directory || platform == directory) {
+        return platform;
+      }
+    }
+    return null;
   }
 
   Future<void> _textResponse(
