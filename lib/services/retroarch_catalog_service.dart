@@ -139,7 +139,7 @@ class RetroArchPlatformRegistry {
   static const corePlatformTokens = <String, Set<String>>{
     'nes': {'fceumm', 'nestopia', 'mesen', 'quicknes'},
     'fds': {'fceumm', 'nestopia', 'mesen'},
-    'snes': {'snes9x', 'bsnes', 'mesen', 'quicknes'},
+    'snes': {'snes9x', 'bsnes', 'mesen'},
     'gb': {'gambatte', 'sameboy', 'mgba', 'tgbdual', 'gearboy'},
     'gbc': {'gambatte', 'sameboy', 'mgba', 'tgbdual', 'gearboy'},
     'gba': {'mgba', 'vba', 'gpsp', 'meteor'},
@@ -157,7 +157,7 @@ class RetroArchPlatformRegistry {
     '32x': {'picodrive'},
     'sat': {'beetle_saturn', 'yabause', 'kronos'},
     'dc': {'flycast', 'reicast'},
-    'a26': {'stella', 'prosystem'},
+    'a26': {'stella', 'stella2014'},
     'a52': {'atari800'},
     'a78': {'prosystem', 'a7800'},
     'lynx': {'handy', 'mednafen_lynx'},

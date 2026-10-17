@@ -104,6 +104,24 @@ void main() {
       expect(platforms, containsAll(<String>['snes', 'gb', 'gbc', 'gba']));
       expect(platforms, isNot(contains('ps1')));
     });
+
+    test('does not treat the NES-only quicknes core as SNES-compatible', () {
+      final platforms = RetroArchPlatformRegistry.platformsForCoreNames([
+        'quicknes_libretro_android.so',
+      ]);
+
+      expect(platforms, contains('nes'));
+      expect(platforms, isNot(contains('snes')));
+    });
+
+    test('does not treat the Atari 7800 prosystem core as Atari 2600', () {
+      final platforms = RetroArchPlatformRegistry.platformsForCoreNames([
+        'prosystem_libretro_android.so',
+      ]);
+
+      expect(platforms, contains('a78'));
+      expect(platforms, isNot(contains('a26')));
+    });
   });
 
   group('RetroArchSourceResolver', () {
