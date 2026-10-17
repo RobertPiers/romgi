@@ -12,6 +12,7 @@ import 'package:romgi/services/debrid/debrid_registry.dart';
 import 'package:romgi/services/debrid_service.dart';
 import 'package:romgi/services/download_service.dart';
 import 'package:romgi/services/host_adapter.dart';
+import 'package:romgi/services/link_resolver.dart';
 import 'package:romgi/services/notification_service.dart';
 import 'package:romgi/services/rom_database_service.dart';
 import 'package:romgi/services/seven_zip_service.dart';

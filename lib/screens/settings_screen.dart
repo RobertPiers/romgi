@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -194,6 +195,11 @@ class SettingsScreen extends ConsumerWidget {
 
                 _SectionHeader(title: 'Game Metadata'),
                 const _MetadataSection(),
+
+                const Divider(height: 32),
+
+                _SectionHeader(title: 'RetroArch'),
+                const _RetroArchSection(),
 
                 const Divider(height: 32),
 
@@ -682,6 +688,57 @@ class _SectionHeader extends StatelessWidget {
           fontWeight: FontWeight.bold,
         ),
       ),
+    );
+  }
+}
+
+class _RetroArchSection extends ConsumerWidget {
+  const _RetroArchSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(retroArchServerProvider);
+    final notifier = ref.read(retroArchServerProvider.notifier);
+
+    final subtitle = state.error != null
+        ? 'Unable to start: ${state.error}'
+        : state.uri == null
+            ? 'Serve supported Romgi content through RetroArch'
+            : 'Running at ${state.uri}\nKeep romgi open while RetroArch downloads';
+
+    return ListTile(
+      leading: const Icon(Icons.sports_esports),
+      title: const Text('Romgi Content Provider'),
+      subtitle: Text(subtitle),
+      isThreeLine: state.uri != null || state.error != null,
+      trailing: state.starting
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : state.uri == null
+              ? FilledButton(
+                  onPressed: () => notifier.start(),
+                  child: const Text('Start'),
+                )
+              : IconButton(
+                  tooltip: 'Stop provider',
+                  icon: const Icon(Icons.stop_circle_outlined),
+                  onPressed: () => notifier.stop(),
+                ),
+      onLongPress: state.uri == null
+          ? null
+          : () async {
+              await Clipboard.setData(
+                ClipboardData(text: state.uri.toString()),
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('RetroArch asset URL copied')),
+                );
+              }
+            },
     );
   }
 }

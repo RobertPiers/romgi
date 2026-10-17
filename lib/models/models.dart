@@ -6,6 +6,7 @@ export 'game_metadata.dart';
 export 'platform.dart';
 export 'recently_viewed.dart';
 export 'region.dart';
+export 'retroarch_content.dart';
 export 'rom_entry.dart';
 export 'source.dart';
 export 'torrent_metadata.dart';

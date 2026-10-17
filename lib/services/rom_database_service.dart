@@ -529,6 +529,108 @@ class RomDatabaseService {
     );
   }
 
+  /// Returns catalog entries with their source links for one platform.
+  ///
+  /// The RetroArch bridge uses this instead of calling [getEntry] once per
+  /// row. The joined query keeps catalog browsing to one SQLite round-trip
+  /// per platform while preserving all source links for resolver selection.
+  Future<List<RomEntry>> getEntriesWithLinksForPlatform(
+    String platform,
+  ) async {
+    final db = await database;
+    final raColumns = _hasRaColumns
+        ? ', e.ra_game_id, e.ra_num_achievements'
+        : '';
+    final rows = await db.rawQuery('''
+      SELECT e.slug, e.rom_id, e.title, e.platform, e.boxart_url
+             $raColumns,
+             GROUP_CONCAT(DISTINCT r.name) AS region_names,
+             l.rowid AS link_rowid,
+             l.name AS link_name,
+             l.type AS link_type,
+             l.format AS link_format,
+             l.url AS link_url,
+             l.filename AS link_filename,
+             l.host AS link_host,
+             l.size AS link_size,
+             l.size_str AS link_size_str,
+             l.source_url AS link_source_url,
+             l.source_id AS link_source_id,
+             l.requires_auth AS link_requires_auth,
+             l.torrent_infohash AS link_torrent_infohash,
+             l.torrent_file_index AS link_torrent_file_index,
+             l.torrent_file_path AS link_torrent_file_path
+      FROM entries e
+      JOIN links l ON l.entry = e.slug
+      LEFT JOIN regions_entries re ON re.entry = e.slug
+      LEFT JOIN regions r ON r.id = re.region
+      WHERE e.platform = ?
+      GROUP BY e.slug, l.rowid
+      ORDER BY e.title, l.filename
+    ''', [platform]);
+
+    final entries = <String, _EntryWithLinks>{};
+    for (final row in rows) {
+      final slug = row['slug'] as String;
+      final item = entries.putIfAbsent(
+        slug,
+        () => _EntryWithLinks(
+          slug: slug,
+          romId: row['rom_id'] as String?,
+          title: row['title'] as String,
+          platform: row['platform'] as String,
+          boxartUrl: row['boxart_url'] as String?,
+          raGameId: _hasRaColumns ? row['ra_game_id'] as int? : null,
+          raNumAchievements:
+              _hasRaColumns ? row['ra_num_achievements'] as int? : null,
+          regions: <String>{},
+          links: <DownloadLink>[],
+        ),
+      );
+
+      final regionNames = row['region_names'] as String?;
+      if (regionNames != null && regionNames.isNotEmpty) {
+        item.regions.addAll(regionNames.split(','));
+      }
+      item.links.add(_downloadLinkFromJoinedRow(row));
+    }
+
+    return entries.values
+        .map(
+          (entry) => RomEntry(
+            slug: entry.slug,
+            romId: entry.romId,
+            title: entry.title,
+            platform: entry.platform,
+            boxartUrl: entry.boxartUrl,
+            raGameId: entry.raGameId,
+            raNumAchievements: entry.raNumAchievements,
+            regions: entry.regions.toList(growable: false),
+            links: entry.links.toList(growable: false),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  DownloadLink _downloadLinkFromJoinedRow(Map<String, Object?> row) {
+    return DownloadLink(
+      name: row['link_name'] as String? ?? '',
+      type: row['link_type'] as String? ?? 'Game',
+      format: row['link_format'] as String? ?? '',
+      url: row['link_url'] as String? ?? '',
+      filename: row['link_filename'] as String? ?? '',
+      host: row['link_host'] as String? ?? '',
+      size: row['link_size'] as int? ?? 0,
+      sizeStr: row['link_size_str'] as String? ?? '',
+      sourceUrl: row['link_source_url'] as String? ?? '',
+      sourceId: row['link_source_id'] as String?,
+      requiresAuth: (row['link_requires_auth'] as int? ?? 0) != 0,
+      torrentInfohash: row['link_torrent_infohash'] as String?,
+      torrentFileIndex: row['link_torrent_file_index'] as int?,
+      torrentFilePath: row['link_torrent_file_path'] as String?,
+    );
+  }
+
   /// Torrent metadata (magnet, trackers, …) for [infohash], or null when the
   /// catalog has no torrents table or no matching row.
   Future<TorrentMetadata?> getTorrentMetadata(String infohash) async {
@@ -647,4 +749,28 @@ class RomDatabaseService {
   Future<void> close() async {
     await _closeDatabase();
   }
+}
+
+class _EntryWithLinks {
+  final String slug;
+  final String? romId;
+  final String title;
+  final String platform;
+  final String? boxartUrl;
+  final int? raGameId;
+  final int? raNumAchievements;
+  final Set<String> regions;
+  final List<DownloadLink> links;
+
+  _EntryWithLinks({
+    required this.slug,
+    required this.romId,
+    required this.title,
+    required this.platform,
+    required this.boxartUrl,
+    required this.raGameId,
+    required this.raNumAchievements,
+    required this.regions,
+    required this.links,
+  });
 }
