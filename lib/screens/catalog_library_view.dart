@@ -294,7 +294,7 @@ class _CatalogLibraryViewState extends ConsumerState<CatalogLibraryView> {
       }
       final completedPath = completedTask?.filePath;
       if (completedPath != null && _pathExists(completedPath)) {
-        await _launch(completedPath);
+        await _launch(completedPath, platform: summary.platform);
         return;
       }
 
@@ -364,9 +364,12 @@ class _CatalogLibraryViewState extends ConsumerState<CatalogLibraryView> {
     }
   }
 
-  Future<void> _launch(String path) async {
+  Future<void> _launch(String path, {String? platform}) async {
     try {
-      await ref.read(retroArchLauncherProvider).launch(path);
+      await ref.read(retroArchLauncherProvider).launch(
+            path,
+            platform: platform,
+          );
     } on PlatformException catch (error) {
       _message(error.message ?? 'RetroArch is not installed');
     } catch (error) {

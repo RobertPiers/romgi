@@ -36,7 +36,7 @@ class RetroArchLauncher {
     }
   }
 
-  Future<void> launch(String path) async {
+  Future<void> launch(String path, {String? platform}) async {
     final playablePath = await _resolvePlayablePath(path);
     if (playablePath == null) {
       throw PlatformException(
@@ -46,7 +46,10 @@ class RetroArchLauncher {
     }
     await _channel.invokeMethod<void>(
       'launchRetroArch',
-      {'path': playablePath},
+      {
+        'path': playablePath,
+        if (platform != null) 'platform': platform,
+      },
     );
   }
 

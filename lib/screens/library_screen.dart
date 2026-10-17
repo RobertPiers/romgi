@@ -412,7 +412,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     }
 
     try {
-      await ref.read(retroArchLauncherProvider).launch(item.filePath);
+      await ref
+          .read(retroArchLauncherProvider)
+          .launch(item.filePath, platform: item.platform);
     } on PlatformException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

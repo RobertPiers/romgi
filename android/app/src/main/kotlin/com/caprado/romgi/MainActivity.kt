@@ -86,6 +86,7 @@ class MainActivity : FlutterActivity() {
                         val uri = FileProvider.getUriForFile(
                             this, "$packageName.fileprovider", file,
                         )
+                        val platform = call.argument<String>("platform")
                         val extension = file.extension.lowercase()
                         val mime = MimeTypeMap.getSingleton()
                             .getMimeTypeFromExtension(extension) ?: "application/octet-stream"
@@ -102,6 +103,17 @@ class MainActivity : FlutterActivity() {
                         for (retroArchPackage in packages) {
                             val retro = Intent().apply {
                                 setComponent(ComponentName(retroArchPackage, retroActivity))
+                                putExtra(
+                                    "CONFIGFILE",
+                                    "/storage/emulated/0/Android/data/" +
+                                        "$retroArchPackage/files/retroarch.cfg",
+                                )
+                                coreNameFor(platform, extension)?.let { coreName ->
+                                    putExtra(
+                                        "LIBRETRO",
+                                        "/data/user/0/$retroArchPackage/cores/$coreName",
+                                    )
+                                }
                                 putExtra("ROM", file.absolutePath)
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -267,6 +279,44 @@ class MainActivity : FlutterActivity() {
                     "cores" to emptyList<String>(),
                 ),
             )
+        }
+    }
+
+    private fun coreNameFor(platform: String?, extension: String): String? {
+        val normalized = (platform ?: extension).lowercase().removePrefix(".")
+        return when (normalized) {
+            "nes" -> "fceumm_libretro_android.so"
+            "fds" -> "fceumm_libretro_android.so"
+            "snes", "sfc", "smc" -> "snes9x_libretro_android.so"
+            "gb" -> "gambatte_libretro_android.so"
+            "gbc" -> "gambatte_libretro_android.so"
+            "gba" -> "mgba_libretro_android.so"
+            "vb" -> "beetle_vb_libretro_android.so"
+            "n64", "v64", "z64" ->
+                "mupen64plus_next_libretro_android.so"
+            "nds" -> "melonds_libretro_android.so"
+            "gc" -> "dolphin_libretro_android.so"
+            "wii" -> "dolphin_libretro_android.so"
+            "ps1" -> "swanstation_libretro_android.so"
+            "psp" -> "ppsspp_libretro_android.so"
+            "sms" -> "genesis_plus_gx_libretro_android.so"
+            "gg" -> "genesis_plus_gx_libretro_android.so"
+            "smd", "md", "gen" -> "genesis_plus_gx_libretro_android.so"
+            "scd" -> "genesis_plus_gx_libretro_android.so"
+            "32x" -> "picodrive_libretro_android.so"
+            "sat" -> "yabause_libretro_android.so"
+            "dc" -> "flycast_libretro_android.so"
+            "a26" -> "stella2023_libretro_android.so"
+            "a52" -> "atari800_libretro_android.so"
+            "a78" -> "prosystem_libretro_android.so"
+            "lynx", "lnx" -> "handy_libretro_android.so"
+            "jag", "j64" -> "virtualjaguar_libretro_android.so"
+            "tg16", "pce" -> "mednafen_pce_fast_libretro_android.so"
+            "tgcd" -> "mednafen_pce_fast_libretro_android.so"
+            "pcfx" -> "mednafen_pcfx_libretro_android.so"
+            "3do" -> "opera_libretro_android.so"
+            "ngcd" -> "neocd_libretro_android.so"
+            else -> null
         }
     }
 
