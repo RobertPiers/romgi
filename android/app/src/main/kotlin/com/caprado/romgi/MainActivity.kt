@@ -1,7 +1,13 @@
 package com.caprado.romgi
 
-import android.content.Intent
 import android.content.ComponentName
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.webkit.CookieManager
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
@@ -137,6 +143,8 @@ class MainActivity : FlutterActivity() {
                     } catch (t: Throwable) {
                         result.error("RETROARCH_LAUNCH_FAILED", t.message, null)
                     }
+                } else if (call.method == "getInstalledRetroArchCores") {
+                    queryInstalledRetroArchCores(result)
                 } else if (call.method == "getNativeLibraryDir") {
                     // pkg2zip is bundled as jniLibs/<abi>/libpkg2zip.so (a real
                     // executable, not a loadable native library) so Android's APK
@@ -169,7 +177,104 @@ class MainActivity : FlutterActivity() {
         super.onDestroy()
     }
 
+    private fun queryInstalledRetroArchCores(result: MethodChannel.Result) {
+        val packages = listOf(
+            "com.retroarch.aarch64",
+            "com.retroarch",
+            "com.retroarch.ra32",
+            "org.libretro.retroarch",
+        )
+        val retroArchPackage = packages.firstOrNull { packageName ->
+            try {
+                packageManager.getPackageInfo(packageName, 0)
+                true
+            } catch (_: Throwable) {
+                false
+            }
+        }
+
+        if (retroArchPackage == null) {
+            result.success(
+                mapOf("installed" to false, "known" to false, "cores" to emptyList<String>()),
+            )
+            return
+        }
+
+        val handler = Handler(Looper.getMainLooper())
+        var finished = false
+        var registered = false
+        lateinit var receiver: BroadcastReceiver
+        lateinit var timeout: Runnable
+
+        fun finish(value: Map<String, Any>) {
+            if (finished) return
+            finished = true
+            handler.removeCallbacks(timeout)
+            if (registered) {
+                try {
+                    unregisterReceiver(receiver)
+                } catch (_: Throwable) {
+                    // The activity may already be shutting down.
+                }
+            }
+            result.success(value)
+        }
+
+        receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context, intent: Intent) {
+                val cores = intent.getStringArrayExtra(RETROARCH_CORES_EXTRA)
+                    ?.toList()
+                    ?: emptyList()
+                finish(
+                    mapOf(
+                        "installed" to true,
+                        "known" to true,
+                        "cores" to cores,
+                    ),
+                )
+            }
+        }
+        timeout = Runnable {
+            // Older/community RetroArch builds may not include the optional
+            // receiver. Preserve catalog usability when that query is absent.
+            finish(
+                mapOf(
+                    "installed" to true,
+                    "known" to false,
+                    "cores" to emptyList<String>(),
+                ),
+            )
+        }
+
+        try {
+            val filter = IntentFilter(RETROARCH_CORES_RESULT)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                @Suppress("DEPRECATION")
+                registerReceiver(receiver, filter)
+            }
+            registered = true
+            sendBroadcast(
+                Intent(RETROARCH_CORES_QUERY).setPackage(retroArchPackage),
+            )
+            handler.postDelayed(timeout, CORE_QUERY_TIMEOUT_MS)
+        } catch (_: Throwable) {
+            finish(
+                mapOf(
+                    "installed" to true,
+                    "known" to false,
+                    "cores" to emptyList<String>(),
+                ),
+            )
+        }
+    }
+
     companion object {
         private const val OPEN_CHANNEL = "com.caprado.romgi/open"
+        private const val RETROARCH_CORES_QUERY = "com.retroarch.QUERY_INSTALLED_CORES"
+        private const val RETROARCH_CORES_RESULT = "com.retroarch.INSTALLED_CORES_RESULT"
+        private const val RETROARCH_CORES_EXTRA = "CORES"
+        private const val CORE_QUERY_TIMEOUT_MS = 1200L
     }
 }

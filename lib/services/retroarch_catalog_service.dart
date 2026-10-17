@@ -132,6 +132,53 @@ class RetroArchPlatformRegistry {
 
   static RetroArchPlatformDefinition? forPlatform(String platform) =>
       definitions[platform];
+
+  /// Best-effort mapping from RetroArch's installed core filenames to Romgi
+  /// platforms. The Android core query returns filenames rather than the
+  /// core-info database, so these use stable libretro core identifiers.
+  static const corePlatformTokens = <String, Set<String>>{
+    'nes': {'fceumm', 'nestopia', 'mesen', 'quicknes'},
+    'fds': {'fceumm', 'nestopia', 'mesen'},
+    'snes': {'snes9x', 'bsnes', 'mesen', 'quicknes'},
+    'gb': {'gambatte', 'sameboy', 'mgba', 'tgbdual', 'gearboy'},
+    'gbc': {'gambatte', 'sameboy', 'mgba', 'tgbdual', 'gearboy'},
+    'gba': {'mgba', 'vba', 'gpsp', 'meteor'},
+    'vb': {'beetle_vb', 'mednafen_vb'},
+    'n64': {'mupen64', 'parallel_n64', 'mupen64plus'},
+    'nds': {'melonds', 'desmume', 'noods'},
+    'gc': {'dolphin'},
+    'wii': {'dolphin'},
+    'ps1': {'pcsx_rearmed', 'beetle_psx', 'swanstation', 'duckstation'},
+    'psp': {'ppsspp'},
+    'sms': {'genesis_plus_gx', 'picodrive', 'smsplus'},
+    'gg': {'genesis_plus_gx', 'picodrive', 'smsplus'},
+    'smd': {'genesis_plus_gx', 'picodrive'},
+    'scd': {'genesis_plus_gx', 'picodrive'},
+    '32x': {'picodrive'},
+    'sat': {'beetle_saturn', 'yabause', 'kronos'},
+    'dc': {'flycast', 'reicast'},
+    'a26': {'stella', 'prosystem'},
+    'a52': {'atari800'},
+    'a78': {'prosystem', 'a7800'},
+    'lynx': {'handy', 'mednafen_lynx'},
+    'jag': {'virtualjaguar'},
+    'tg16': {'mednafen_pce', 'beetle_pce', 'pce_fast'},
+    'tgcd': {'mednafen_pce', 'beetle_pce'},
+    'pcfx': {'mednafen_pcfx', 'beetle_pcfx'},
+    '3do': {'opera', '4do'},
+    'ngcd': {'fbneo', 'neocd', 'mednafen_neocd'},
+  };
+
+  static Set<String> platformsForCoreNames(Iterable<String> coreNames) {
+    final names = coreNames.map((name) => name.toLowerCase()).toList();
+    return {
+      for (final entry in corePlatformTokens.entries)
+        if (entry.value.any(
+          (token) => names.any((name) => name.contains(token)),
+        ))
+          entry.key,
+    };
+  }
 }
 
 /// Converts Romgi entries into the transport records a RetroArch bridge will

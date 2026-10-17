@@ -94,6 +94,16 @@ void main() {
     test('does not expose entries without a usable link', () {
       expect(RetroArchCatalogAdapter().adapt(_entry()), isNull);
     });
+
+    test('maps installed core filenames to compatible platforms', () {
+      final platforms = RetroArchPlatformRegistry.platformsForCoreNames([
+        'snes9x_libretro_android.so',
+        'mgba_libretro_android.so',
+      ]);
+
+      expect(platforms, containsAll(<String>['snes', 'gb', 'gbc', 'gba']));
+      expect(platforms, isNot(contains('ps1')));
+    });
   });
 
   group('RetroArchSourceResolver', () {

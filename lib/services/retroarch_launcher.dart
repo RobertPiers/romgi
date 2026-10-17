@@ -10,6 +10,32 @@ import 'package:flutter/services.dart';
 class RetroArchLauncher {
   static const MethodChannel _channel = MethodChannel('com.caprado.romgi/open');
 
+  /// Returns the core filenames reported by RetroArch's Android bridge.
+  ///
+  /// A null result means that the installed build does not expose this
+  /// optional query (or that the app is running outside Android). An empty
+  /// set means either that no RetroArch package is installed or that an
+  /// installed RetroArch build has no discoverable cores.
+  Future<Set<String>?> installedCoreNames() async {
+    try {
+      final response = await _channel.invokeMethod<Object?>(
+        'getInstalledRetroArchCores',
+      );
+      if (response is! Map) return null;
+      if (response['installed'] != true) return <String>{};
+      if (response['known'] != true) {
+        return null;
+      }
+      final cores = response['cores'];
+      if (cores is! List) return <String>{};
+      return cores.whereType<String>().toSet();
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
+
   Future<void> launch(String path) async {
     final playablePath = await _resolvePlayablePath(path);
     if (playablePath == null) {

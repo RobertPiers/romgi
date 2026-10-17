@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import '../models/models.dart';
 import 'database_service.dart';
 import 'retroarch_catalog_service.dart';
+import 'retroarch_launcher.dart';
 import 'rom_database_service.dart';
 import 'storage_service.dart';
 
@@ -18,22 +19,32 @@ class RetroArchLibraryService {
   final DatabaseService _db;
   final StorageService _storage;
   final RetroArchCatalogAdapter _catalog;
+  final RetroArchLauncher _launcher;
 
   RetroArchLibraryService({
     required RomDatabaseService romDb,
     required DatabaseService db,
     required StorageService storage,
     RetroArchCatalogAdapter? catalog,
+    RetroArchLauncher? launcher,
   })  : _romDb = romDb,
         _db = db,
         _storage = storage,
-        _catalog = catalog ?? RetroArchCatalogAdapter();
+        _catalog = catalog ?? RetroArchCatalogAdapter(),
+        _launcher = launcher ?? RetroArchLauncher();
 
   Future<List<RetroArchLibraryItem>> load({
     bool isIaLoggedIn = false,
   }) async {
+    final installedCoreNames = await _launcher.installedCoreNames();
+    final supportedPlatforms = installedCoreNames == null
+        ? _catalog.supportedPlatforms
+        : RetroArchPlatformRegistry.platformsForCoreNames(
+            installedCoreNames,
+          );
+
     final platformEntries = await Future.wait(
-      _catalog.supportedPlatforms.map(
+      supportedPlatforms.map(
         (platform) => _romDb.getEntriesWithLinksForPlatform(platform),
       ),
     );
@@ -57,7 +68,7 @@ class RetroArchLibraryService {
     }
 
     final installedByPlatform = <String, Map<String, String>>{};
-    for (final platform in _catalog.supportedPlatforms) {
+    for (final platform in supportedPlatforms) {
       installedByPlatform[platform] = await _scanPlatform(platform);
     }
 
