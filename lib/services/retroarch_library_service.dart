@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 import '../models/models.dart';
 import 'database_service.dart';
+import 'retroarch_artwork_service.dart';
 import 'retroarch_catalog_service.dart';
 import 'retroarch_launcher.dart';
 import 'rom_database_service.dart';
@@ -20,6 +21,7 @@ class RetroArchLibraryService {
   final StorageService _storage;
   final RetroArchCatalogAdapter _catalog;
   final RetroArchLauncher _launcher;
+  final RetroArchArtworkService _artwork;
 
   RetroArchLibraryService({
     required RomDatabaseService romDb,
@@ -27,11 +29,13 @@ class RetroArchLibraryService {
     required StorageService storage,
     RetroArchCatalogAdapter? catalog,
     RetroArchLauncher? launcher,
+    RetroArchArtworkService? artwork,
   })  : _romDb = romDb,
         _db = db,
         _storage = storage,
         _catalog = catalog ?? RetroArchCatalogAdapter(),
-        _launcher = launcher ?? RetroArchLauncher();
+        _launcher = launcher ?? RetroArchLauncher(),
+        _artwork = artwork ?? RetroArchArtworkService();
 
   Future<List<RetroArchLibraryItem>> load({
     bool isIaLoggedIn = false,
@@ -67,23 +71,31 @@ class RetroArchLibraryService {
       completedBySlug.putIfAbsent(task.slug, () => task);
     }
 
+    final artworkPaths = await Future.wait(
+      contents.map(_artwork.find),
+    );
+
     final installedByPlatform = <String, Map<String, String>>{};
     for (final platform in supportedPlatforms) {
       installedByPlatform[platform] = await _scanPlatform(platform);
     }
 
-    return contents
-        .map(
-          (content) => RetroArchLibraryItem(
-            content: content,
-            installedPath: _installedPath(
-              content,
-              completedBySlug[content.romgiSlug],
-              installedByPlatform[content.platform] ?? const {},
-            ),
+    return List<RetroArchLibraryItem>.generate(
+      contents.length,
+      (index) {
+        final content = contents[index];
+        return RetroArchLibraryItem(
+          content: content,
+          nativeArtworkPath: artworkPaths[index],
+          installedPath: _installedPath(
+            content,
+            completedBySlug[content.romgiSlug],
+            installedByPlatform[content.platform] ?? const {},
           ),
-        )
-        .toList(growable: false);
+        );
+      },
+      growable: false,
+    );
   }
 
   Future<Map<String, String>> _scanPlatform(String platform) async {

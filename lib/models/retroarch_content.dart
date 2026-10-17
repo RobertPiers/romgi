@@ -58,10 +58,12 @@ class RetroArchContent {
 class RetroArchLibraryItem {
   final RetroArchContent content;
   final String? installedPath;
+  final String? nativeArtworkPath;
 
   const RetroArchLibraryItem({
     required this.content,
     this.installedPath,
+    this.nativeArtworkPath,
   });
 
   bool get isInstalled => installedPath != null;

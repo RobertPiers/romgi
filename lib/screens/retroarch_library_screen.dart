@@ -384,6 +384,7 @@ class _RetroArchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final content = item.content;
     final task = activeTask;
+    final nativeArtworkPath = item.nativeArtworkPath;
     final isDownloading = task != null;
     final blocked = content.requiresDebrid && !debridEnabled;
     final label = item.isInstalled
@@ -402,21 +403,13 @@ class _RetroArchCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: content.boxartUrl == null
-                  ? const ColoredBox(
-                      color: Colors.black12,
-                      child: Icon(Icons.videogame_asset, size: 48),
-                    )
-                  : CachedNetworkImage(
-                      imageUrl: content.boxartUrl!,
+              child: nativeArtworkPath == null
+                  ? _fallbackArtwork(context, content)
+                  : Image.file(
+                      File(nativeArtworkPath),
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => const Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      errorWidget: (context, url, error) => const ColoredBox(
-                        color: Colors.black12,
-                        child: Icon(Icons.broken_image_outlined, size: 40),
-                      ),
+                      errorBuilder: (context, error, stackTrace) =>
+                          _fallbackArtwork(context, content),
                     ),
             ),
             Padding(
@@ -462,6 +455,26 @@ class _RetroArchCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _fallbackArtwork(BuildContext context, RetroArchContent content) {
+    if (content.boxartUrl == null) {
+      return const ColoredBox(
+        color: Colors.black12,
+        child: Icon(Icons.videogame_asset, size: 48),
+      );
+    }
+    return CachedNetworkImage(
+      imageUrl: content.boxartUrl!,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => const Center(
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ),
+      errorWidget: (context, url, error) => const ColoredBox(
+        color: Colors.black12,
+        child: Icon(Icons.broken_image_outlined, size: 40),
       ),
     );
   }
