@@ -6,6 +6,7 @@ import '../services/services.dart';
 import 'api_provider.dart';
 import 'debrid_provider.dart';
 import 'download_provider.dart';
+import 'internet_archive_auth_provider.dart';
 
 /// Shared provider for the local RetroArch asset-server prototype.
 ///
@@ -22,6 +23,10 @@ final retroArchAssetServerProvider = Provider<RetroArchAssetServer>((ref) {
     sourceResolver: RetroArchSourceResolver(debrid: debrid),
     adapters: adapters,
   );
+});
+
+final retroArchLauncherProvider = Provider<RetroArchLauncher>((ref) {
+  return RetroArchLauncher();
 });
 
 class RetroArchServerState {
@@ -75,4 +80,64 @@ class RetroArchServerNotifier extends StateNotifier<RetroArchServerState> {
 final retroArchServerProvider = StateNotifierProvider<RetroArchServerNotifier,
     RetroArchServerState>((ref) {
   return RetroArchServerNotifier(ref.watch(retroArchAssetServerProvider));
+});
+
+class RetroArchLibraryState {
+  final List<RetroArchLibraryItem> items;
+  final bool isLoading;
+  final String? error;
+
+  const RetroArchLibraryState({
+    this.items = const [],
+    this.isLoading = false,
+    this.error,
+  });
+
+  RetroArchLibraryState copyWith({
+    List<RetroArchLibraryItem>? items,
+    bool? isLoading,
+    String? error,
+    bool clearError = false,
+  }) {
+    return RetroArchLibraryState(
+      items: items ?? this.items,
+      isLoading: isLoading ?? this.isLoading,
+      error: clearError ? null : (error ?? this.error),
+    );
+  }
+}
+
+class RetroArchLibraryNotifier extends StateNotifier<RetroArchLibraryState> {
+  RetroArchLibraryNotifier(this._service, this._iaAuth)
+      : super(const RetroArchLibraryState()) {
+    refresh();
+  }
+
+  final RetroArchLibraryService _service;
+  final IAAuthManager _iaAuth;
+
+  Future<void> refresh() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final items = await _service.load(
+        isIaLoggedIn: await _iaAuth.isLoggedIn(),
+      );
+      state = RetroArchLibraryState(items: items);
+    } catch (error) {
+      state = RetroArchLibraryState(error: error.toString());
+    }
+  }
+}
+
+final retroArchLibraryProvider = StateNotifierProvider<
+    RetroArchLibraryNotifier, RetroArchLibraryState>((ref) {
+  final service = RetroArchLibraryService(
+    romDb: ref.watch(romDatabaseProvider),
+    db: ref.watch(databaseServiceProvider),
+    storage: ref.watch(storageServiceProvider),
+  );
+  return RetroArchLibraryNotifier(
+    service,
+    ref.watch(internetArchiveAuthProvider),
+  );
 });

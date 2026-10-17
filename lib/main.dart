@@ -94,6 +94,7 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     BrowseScreen(),
     DownloadsScreen(),
     LibraryScreen(),
+    RetroArchLibraryScreen(),
     SettingsScreen(),
   ];
 
@@ -198,6 +199,9 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     if (index == NavTab.library && previousIndex != NavTab.library) {
       ref.read(libraryProvider.notifier).refresh();
     }
+    if (index == NavTab.retroarch && previousIndex != NavTab.retroarch) {
+      ref.read(retroArchLibraryProvider.notifier).refresh();
+    }
   }
 
   @override
@@ -231,6 +235,11 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
                   icon: Icon(Icons.library_books_outlined),
                   selectedIcon: Icon(Icons.library_books),
                   label: Text('Library'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.sports_esports_outlined),
+                  selectedIcon: Icon(Icons.sports_esports),
+                  label: Text('RetroArch'),
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.settings_outlined),
@@ -269,6 +278,11 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
             icon: Icon(Icons.library_books_outlined),
             selectedIcon: Icon(Icons.library_books),
             label: 'Library',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.sports_esports_outlined),
+            selectedIcon: Icon(Icons.sports_esports),
+            label: 'RetroArch',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

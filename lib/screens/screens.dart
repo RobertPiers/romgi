@@ -7,3 +7,4 @@ export 'internet_archive_login_screen.dart';
 export 'library_screen.dart';
 export 'settings_screen.dart';
 export 'sources_screen.dart';
+export 'retroarch_library_screen.dart';

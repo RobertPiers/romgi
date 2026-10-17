@@ -271,7 +271,10 @@ class RetroArchAssetServer {
         return;
       }
 
-      final upstreamLength = upstream.headers.contentLength;
+      final upstreamLength = int.tryParse(
+        upstream.headers.value('content-length') ?? '',
+      ) ??
+          0;
       if (upstreamLength > 0) {
         response.contentLength = upstreamLength;
       } else if (resolved.size > 0) {

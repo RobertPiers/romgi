@@ -173,6 +173,17 @@ class RetroArchCatalogAdapter {
 
     if (ranked.isEmpty) return null;
 
+    // Debrid makes torrent links eligible, but a normal HTTP source should
+    // still win an otherwise tied choice. This keeps RetroArch downloads
+    // direct whenever possible and reserves cache resolution for torrent-only
+    // entries.
+    ranked.sort((a, b) {
+      final score = b.score.compareTo(a.score);
+      if (score != 0) return score;
+      if (a.link.isTorrent == b.link.isTorrent) return 0;
+      return a.link.isTorrent ? 1 : -1;
+    });
+
     final link = ranked.first.link;
     return RetroArchContent(
       romgiSlug: entry.slug,
@@ -180,6 +191,7 @@ class RetroArchCatalogAdapter {
       platform: entry.platform,
       databaseName: definition.databaseName,
       filename: link.filename,
+      boxartUrl: entry.boxartUrl,
       romId: entry.romId,
       regions: List.unmodifiable(entry.regions),
       link: link,

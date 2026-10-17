@@ -16,6 +16,8 @@ export 'notification_service.dart';
 export 'prowlarr_service.dart';
 export 'retroarch_asset_server.dart';
 export 'retroarch_catalog_service.dart';
+export 'retroarch_launcher.dart';
+export 'retroarch_library_service.dart';
 export 'rom_database_service.dart';
 export 'seven_zip_service.dart';
 export 'sources_service.dart';

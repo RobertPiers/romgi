@@ -26,6 +26,7 @@ class RetroArchContent {
   final String platform;
   final String databaseName;
   final String filename;
+  final String? boxartUrl;
   final String? romId;
   final List<String> regions;
   final DownloadLink link;
@@ -36,6 +37,7 @@ class RetroArchContent {
     required this.platform,
     required this.databaseName,
     required this.filename,
+    required this.boxartUrl,
     required this.romId,
     required this.regions,
     required this.link,
@@ -47,4 +49,20 @@ class RetroArchContent {
 
   /// Whether serving this item requires a debrid cache provider.
   bool get requiresDebrid => link.isTorrent;
+}
+
+/// A RetroArch library item plus the file currently installed on disk.
+///
+/// The catalog entry exists even when [installedPath] is null, so the UI can
+/// present the same library card with an Install or Play action.
+class RetroArchLibraryItem {
+  final RetroArchContent content;
+  final String? installedPath;
+
+  const RetroArchLibraryItem({
+    required this.content,
+    this.installedPath,
+  });
+
+  bool get isInstalled => installedPath != null;
 }
