@@ -10,10 +10,6 @@ import '../providers/providers.dart';
 import '../utils/utils.dart';
 import 'entry_detail_screen.dart';
 
-/// Talks to the native side of "open with…" so we can force the system
-/// chooser via Intent.createChooser instead of the user's saved default.
-const _openChannel = MethodChannel('com.caprado.romgi/open');
-
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
 
@@ -225,15 +221,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               ? _buildEmptyState(libraryState)
               : RefreshIndicator(
                   onRefresh: () => ref.read(libraryProvider.notifier).refresh(),
-                  child: ListView.builder(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 230,
+                      mainAxisExtent: 300,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
                     itemCount: libraryState.filteredItems.length,
                     itemBuilder: (context, index) {
                       final item = libraryState.filteredItems[index];
-                      final fileExists = libraryState.fileExists(item.filePath);
-                      return _LibraryItemTile(
+                      final fileExists =
+                          libraryState.fileExists(item.filePath);
+                      return _LibraryGameCard(
                         item: item,
                         fileExists: fileExists,
                         onTap: () => _openFile(item),
+                        onDetails: () => _showDetails(item),
                         onDelete: () => _confirmDelete(item),
                       );
                     },
@@ -376,7 +381,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     }
 
     final file = File(item.filePath!);
-    if (!await file.exists()) {
+    final directory = Directory(item.filePath!);
+    if (!await file.exists() && !await directory.exists()) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -385,68 +391,73 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       return;
     }
 
-    // Show file info dialog with Open with option
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(item.title),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _infoRow('Platform', PlatformNames.getDisplayName(item.platform)),
-              _infoRow('Format', item.link.format.toUpperCase()),
-              _infoRow('Size', item.link.sizeStr),
-              const SizedBox(height: 8),
-              Text(
-                'Path:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.filePath!,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Close'),
+    try {
+      await ref.read(retroArchLauncherProvider).launch(item.filePath!);
+    } on PlatformException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not launch in RetroArch: ${error.message ?? error.code}',
             ),
-            FilledButton.icon(
-              onPressed: () async {
-                Navigator.pop(dialogContext);
-                try {
-                  await _openChannel.invokeMethod<void>(
-                    'openWithChooser',
-                    {'path': item.filePath},
-                  );
-                } on PlatformException catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Could not open file: ${e.message ?? e.code}')),
-                    );
-                  }
-                }
-              },
-              icon: const Icon(Icons.open_in_new),
-              label: const Text('Open with...'),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not launch in RetroArch: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showDetails(DownloadTask item) async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(item.title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _infoRow('System', PlatformNames.getDisplayName(item.platform)),
+            _infoRow('Format', item.link.format.toUpperCase()),
+            _infoRow('Size', item.link.sizeStr),
+            const SizedBox(height: 8),
+            Text(
+              item.filePath ?? 'No local path',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ],
         ),
-      );
-    }
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+          FilledButton.icon(
+            onPressed: item.filePath == null
+                ? null
+                : () {
+                    Navigator.pop(dialogContext);
+                    _openFile(item);
+                  },
+            icon: const Icon(Icons.play_arrow),
+            label: const Text('Play'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _infoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '$label: ',
@@ -455,7 +466,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               color: Colors.grey[600],
             ),
           ),
-          Text(value),
+          Expanded(child: Text(value)),
         ],
       ),
     );
@@ -515,16 +526,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   }
 }
 
-class _LibraryItemTile extends StatelessWidget {
+class _LibraryGameCard extends StatelessWidget {
   final DownloadTask item;
   final bool fileExists;
   final VoidCallback onTap;
+  final VoidCallback onDetails;
   final VoidCallback onDelete;
 
-  const _LibraryItemTile({
+  const _LibraryGameCard({
     required this.item,
     required this.fileExists,
     required this.onTap,
+    required this.onDetails,
     required this.onDelete,
   });
 
@@ -532,81 +545,124 @@ class _LibraryItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ListTile(
-      leading: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: SizedBox(
-          width: 56,
-          height: 56,
-          child: item.boxartUrl != null
-              ? CachedNetworkImage(
-                  imageUrl: item.boxartUrl!,
-                  fit: BoxFit.cover,
-                  placeholder: (context, string) => Container(
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.gamepad, color: Colors.grey),
-                  ),
-                  errorWidget: (context, string, error) => Container(
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.gamepad, color: Colors.grey),
-                  ),
-                )
-              : Container(
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.gamepad, color: Colors.grey),
-                ),
-        ),
-      ),
-      title: Text(
-        item.title,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: fileExists ? null : Colors.grey,
-          decoration: fileExists ? null : TextDecoration.lineThrough,
-        ),
-      ),
-      subtitle: Row(
-        children: [
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(4),
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onDetails,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 180,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  item.boxartUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: item.boxartUrl!,
+                          fit: BoxFit.cover,
+                          placeholder: (context, string) =>
+                              _placeholder(theme),
+                          errorWidget: (context, string, error) =>
+                              _placeholder(theme),
+                        )
+                      : _placeholder(theme),
+                  if (!fileExists)
+                    Container(
+                      color: Colors.black54,
+                      alignment: Alignment.center,
+                      child: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.warning_amber, color: Colors.white),
+                          SizedBox(height: 4),
+                          Text(
+                            'Missing file',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (fileExists)
+                    Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: FloatingActionButton.small(
+                        heroTag: 'play-${item.id}',
+                        onPressed: onTap,
+                        tooltip: 'Play in RetroArch',
+                        child: const Icon(Icons.play_arrow),
+                      ),
+                    ),
+                ],
               ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 4, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: fileExists ? null : Colors.grey,
+                        decoration:
+                            fileExists ? null : TextDecoration.lineThrough,
+                      ),
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    onSelected: (value) {
+                      if (value == 'details') onDetails();
+                      if (value == 'delete') onDelete();
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'details',
+                        child: Text('Details'),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 2, 10, 10),
               child: Text(
                 PlatformNames.getDisplayName(item.platform),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onPrimaryContainer,
-                ),
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            item.link.sizeStr,
-            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-          ),
-          if (!fileExists) ...[
-            const SizedBox(width: 4),
-            Icon(Icons.warning, size: 12, color: Colors.orange[700]),
-            const SizedBox(width: 2),
-            Text(
-              'Missing',
-              style: TextStyle(fontSize: 10, color: Colors.orange[700]),
-            ),
           ],
-        ],
+        ),
       ),
-      trailing: IconButton(
-        icon: const Icon(Icons.delete_outline),
-        onPressed: onDelete,
+    );
+  }
+
+  Widget _placeholder(ThemeData theme) {
+    return Container(
+      color: theme.colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.videogame_asset,
+        size: 48,
+        color: theme.colorScheme.onSurfaceVariant,
       ),
-      onTap: onTap,
     );
   }
 }
