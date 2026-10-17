@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.webkit.CookieManager
@@ -90,6 +91,7 @@ class MainActivity : FlutterActivity() {
                         val extension = file.extension.lowercase()
                         val mime = MimeTypeMap.getSingleton()
                             .getMimeTypeFromExtension(extension) ?: "application/octet-stream"
+                        val storageRoot = Environment.getExternalStorageDirectory().absolutePath
                         val packages = listOf(
                             "com.retroarch.aarch64",
                             "com.retroarch",
@@ -101,12 +103,18 @@ class MainActivity : FlutterActivity() {
 
                         var launched = false
                         for (retroArchPackage in packages) {
+                            val retroApplicationInfo = try {
+                                packageManager.getApplicationInfo(retroArchPackage, 0)
+                            } catch (_: Throwable) {
+                                null
+                            }
+                            val retroExternalPath =
+                                "$storageRoot/Android/data/$retroArchPackage/files"
                             val retro = Intent().apply {
                                 setComponent(ComponentName(retroArchPackage, retroActivity))
                                 putExtra(
                                     "CONFIGFILE",
-                                    "/storage/emulated/0/Android/data/" +
-                                        "$retroArchPackage/files/retroarch.cfg",
+                                    "$retroExternalPath/retroarch.cfg",
                                 )
                                 coreNameFor(platform, extension)?.let { coreName ->
                                     putExtra(
@@ -115,6 +123,18 @@ class MainActivity : FlutterActivity() {
                                     )
                                 }
                                 putExtra("ROM", file.absolutePath)
+                                // These are part of RetroArch's Android launch
+                                // contract. MainMenuActivity supplies them
+                                // when it starts RetroActivityFuture; without
+                                // them some builds show only a black surface.
+                                retroApplicationInfo?.dataDir?.let {
+                                    putExtra("DATADIR", it)
+                                }
+                                retroApplicationInfo?.sourceDir?.let {
+                                    putExtra("APK", it)
+                                }
+                                putExtra("SDCARD", storageRoot)
+                                putExtra("EXTERNAL", retroExternalPath)
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                             }
