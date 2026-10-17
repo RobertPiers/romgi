@@ -14,10 +14,10 @@ import 'live_search_source.dart';
 ///
 /// Downloading a result needs no special handling on romgi's side beyond
 /// populating `torrentInfohash` correctly: any `DownloadLink` with that
-/// field set already gets debrid-resolved automatically if the user has a
-/// debrid provider configured (`DebridService`/`download_service.dart`),
-/// or is dropped gracefully by `LinkResolver` if torrents are disabled and
-/// no debrid provider is set up — both paths already exist and need no
+/// field set is resolved through the enabled debrid provider
+/// (`DebridService`/`download_service.dart`) and never falls back to a local
+/// peer-to-peer download. If torrents are disabled without debrid, the link
+/// is dropped gracefully by `LinkResolver` — both paths need no
 /// Prowlarr-specific code.
 class ProwlarrService {
   ProwlarrService({Dio? dio, FlutterSecureStorage? storage})

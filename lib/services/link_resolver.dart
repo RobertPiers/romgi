@@ -5,6 +5,8 @@ class LinkResolverPrefs {
   final Set<String> preferredSourceIds;
   final bool isIaLoggedIn;
   final bool torrentsDisabled;
+  /// Keep torrent links available for debrid resolution, but never start a
+  /// local peer-to-peer download when this is enabled.
   final bool debridEnabled;
 
   const LinkResolverPrefs({

@@ -7,6 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:romgi/models/models.dart';
 import 'package:romgi/services/database_service.dart';
+import 'package:romgi/services/debrid/debrid_provider.dart';
+import 'package:romgi/services/debrid/debrid_registry.dart';
+import 'package:romgi/services/debrid_service.dart';
 import 'package:romgi/services/download_service.dart';
 import 'package:romgi/services/host_adapter.dart';
 import 'package:romgi/services/notification_service.dart';
@@ -122,6 +125,25 @@ class RecordingTorrentService extends Fake implements TorrentService {
 
   @override
   Future<void> cancel(String infohash) async {}
+}
+
+class _NotCachedDebridProvider implements DebridProvider {
+  @override
+  DebridProviderInfo get info =>
+      const DebridProviderInfo(id: 'fake', name: 'Fake provider');
+
+  @override
+  bool isConfigured(String? apiKey) => apiKey?.isNotEmpty == true;
+
+  @override
+  Future<String?> validateKey(String apiKey) async => null;
+
+  @override
+  Future<DebridResult> resolveFile(
+    DebridFileRequest req, {
+    required String apiKey,
+  }) async =>
+      const DebridNotCached();
 }
 
 class FakeSevenZipService extends Fake implements SevenZipService {
@@ -454,6 +476,39 @@ void main() {
   });
 
   group('torrent finish integrity', () {
+    test('debrid cache miss does not fall back to peer-to-peer', () async {
+      final debrid = DebridService(
+        romDb: FakeRomDatabaseService(),
+        registry: DebridProviderRegistry(
+          providers: [_NotCachedDebridProvider()],
+        ),
+        storage: InMemorySecureStorage({}),
+      );
+      await debrid.setCredentials(providerId: 'fake', apiKey: 'key');
+
+      service = DownloadService(
+        db: db,
+        romDb: FakeRomDatabaseService(),
+        storage: FakeStorageService(platformDir),
+        notifications: FakeNotificationService(),
+        adapters: HostAdapterRegistry(),
+        torrents: torrents,
+        sevenZip: sevenZip,
+        debrid: debrid,
+        dio: Dio(),
+      );
+      service.getLinkResolverPrefs = () =>
+          const LinkResolverPrefs(debridEnabled: true);
+
+      final result = await run(
+        _task('cache-miss', _torrentLink('Game.chd', size: 1000)),
+      );
+
+      expect(result.status, DownloadStatus.failed);
+      expect(result.error, contains('debrid cache provider'));
+      expect(torrents.added, isEmpty);
+    });
+
     test('wrong file delivered fails instead of saving wrong content',
         () async {
       torrentFile('other.chd', 500);

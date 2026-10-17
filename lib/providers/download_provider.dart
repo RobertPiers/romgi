@@ -302,13 +302,14 @@ final downloadProvider = StateNotifierProvider<DownloadNotifier, DownloadState>(
 ) {
   final service = ref.watch(downloadServiceProvider);
   final settings = ref.watch(settingsProvider);
-  final debridService = ref.watch(debridServiceProvider);
   service.shouldExtractForPlatform =
       (platform) => settings.shouldExtractForPlatform(platform);
   service.getLinkResolverPrefs = () => LinkResolverPrefs(
         torrentsDisabled: settings.torrentsDisabled,
-        debridEnabled:
-            settings.debridEnabled && debridService.isConfiguredSync(),
+        // Enabling debrid makes torrent downloads cache-only. Keep this true
+        // even before credentials are loaded so an unconfigured provider can
+        // never silently fall back to peer-to-peer downloading.
+        debridEnabled: settings.debridEnabled,
       );
   service.getPs3DownloadRap = () => settings.ps3DownloadRap;
   service.getVitaDownloadMode = () => settings.vitaDownloadMode;

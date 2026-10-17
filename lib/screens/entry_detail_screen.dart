@@ -141,6 +141,7 @@ class _EntryDetailContentState extends ConsumerState<_EntryDetailContent> {
     List<DownloadLink> links, {
     required bool iaLoggedIn,
     required bool torrentsDisabled,
+    required bool debridEnabled,
   }) {
     // The Vita license (zRIF) is fetched automatically alongside the pkg
     // when needed (see DownloadService._maybeHandleVitaLicense) — hide it
@@ -156,6 +157,7 @@ class _EntryDetailContentState extends ConsumerState<_EntryDetailContent> {
       LinkResolverPrefs(
         isIaLoggedIn: iaLoggedIn,
         torrentsDisabled: torrentsDisabled,
+        debridEnabled: debridEnabled,
       ),
     );
     return ranked.map((r) => r.link).toList();
@@ -382,6 +384,8 @@ class _EntryDetailContentState extends ConsumerState<_EntryDetailContent> {
                           ),
                       torrentsDisabled:
                           ref.watch(settingsProvider).torrentsDisabled,
+                      debridEnabled:
+                          ref.watch(settingsProvider).debridEnabled,
                     );
                     return [
                       Text(
@@ -404,6 +408,8 @@ class _EntryDetailContentState extends ConsumerState<_EntryDetailContent> {
                       ),
                   torrentsDisabled:
                       ref.watch(settingsProvider).torrentsDisabled,
+                  debridEnabled:
+                      ref.watch(settingsProvider).debridEnabled,
                 );
                 if (ranked.isEmpty && entry.links.isEmpty) {
                   return [
@@ -542,13 +548,14 @@ class _DiscGroupSection extends ConsumerWidget {
   Future<void> _downloadAll(BuildContext context, WidgetRef ref) async {
     final iaLoggedIn = await ref.read(iaLoggedInProvider.future);
     if (!context.mounted) return;
-    final torrentsDisabled = ref.read(settingsProvider).torrentsDisabled;
+    final settings = ref.read(settingsProvider);
 
     final result = await ref.read(downloadProvider.notifier).addDiscGroup(
           group,
           prefs: LinkResolverPrefs(
             isIaLoggedIn: iaLoggedIn,
-            torrentsDisabled: torrentsDisabled,
+            torrentsDisabled: settings.torrentsDisabled,
+            debridEnabled: settings.debridEnabled,
           ),
           sourcePriority: kKnownSourcePriority,
         );

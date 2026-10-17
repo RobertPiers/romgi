@@ -486,31 +486,35 @@ class DownloadService {
     if (adapter.isTorrent) {
       final prefs = getLinkResolverPrefs();
       final debrid = _debrid;
-      if (prefs.debridEnabled && debrid != null) {
-        if (await debrid.isConfigured()) {
-          final resolved = await _tryResolveViaDebrid(task);
-          // Task may have been cancelled/paused during the resolution poll
-          if (!_activeTasks.containsKey(task.id)) return;
-          if (resolved != null) {
-            // Re-enter with a plain HTTP link — adapterFor() now routes to HTTP.
-            await _startDownload(resolved);
-            return;
-          }
-          // Attempted but not resolved. If P2P is off there's nowhere to go.
-          if (prefs.torrentsDisabled) {
-            await _failTask(
-              task,
-              'Not cached on debrid and torrents are disabled',
-            );
-            return;
-          }
-        } else if (prefs.torrentsDisabled) {
+      if (prefs.debridEnabled) {
+        if (debrid == null || !await debrid.isConfigured()) {
           await _failTask(
             task,
             'Debrid is enabled but no API key is saved for the selected provider',
           );
           return;
         }
+
+        final resolved = await _tryResolveViaDebrid(task);
+        // Task may have been cancelled/paused during the resolution poll
+        if (!_activeTasks.containsKey(task.id)) return;
+        if (resolved != null) {
+          // Re-enter with a plain HTTP link — adapterFor() now routes to HTTP.
+          await _startDownload(resolved);
+          return;
+        }
+
+        // Debrid mode is intentionally cache-only. Never fall back to a local
+        // torrent, which would turn a cache miss into a peer-to-peer download.
+        await _failTask(
+          task,
+          'Torrent is not available from the debrid cache provider',
+        );
+        return;
+      }
+      if (prefs.torrentsDisabled) {
+        await _failTask(task, 'Peer-to-peer downloads are disabled');
+        return;
       }
       await _startTorrentDownload(task, adapter);
       return;
@@ -932,7 +936,7 @@ class DownloadService {
 
   /// Try to turn a torrent [task] into an HTTP download via the configured
   /// debrid provider. Shows "Resolving/Caching on debrid…" while polling.
-  /// Returns null to fall back to P2P, or to abort after cancel/pause.
+  /// Returns null when no provider link is available, or after cancel/pause.
   Future<DownloadTask?> _tryResolveViaDebrid(DownloadTask task) async {
     final debrid = _debrid;
     if (debrid == null) return null;

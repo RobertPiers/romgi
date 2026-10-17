@@ -76,7 +76,8 @@ class SettingsScreen extends ConsumerWidget {
                   secondary: const Icon(Icons.block),
                   title: const Text('Disable Torrents'),
                   subtitle: const Text(
-                    'Only use direct downloads (hides torrent-only sources)',
+                    'Disable peer-to-peer downloads (debrid cache links remain '
+                    'available)',
                   ),
                   value: settings.torrentsDisabled,
                   onChanged: (value) {
@@ -1713,7 +1714,8 @@ class _DebridSectionState extends ConsumerState<_DebridSection> {
           secondary: const Icon(Icons.bolt),
           title: const Text('Use debrid service'),
           subtitle: const Text(
-            'Resolve cached torrents to fast direct links (TorBox, Real-Debrid)',
+            'Download torrent links only through the provider cache; never '
+            'use peer-to-peer (TorBox, Real-Debrid)',
           ),
           value: settings.debridEnabled,
           onChanged: (value) =>
