@@ -389,7 +389,7 @@ class _RetroArchCard extends StatelessWidget {
     final label = item.isInstalled
         ? 'Play'
         : isDownloading
-            ? task!.statusText
+            ? task.statusText
             : blocked
                 ? 'Debrid required'
                 : 'Install';
@@ -437,10 +437,10 @@ class _RetroArchCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
-            if (isDownloading && task!.progress > 0)
+            if (isDownloading && task.progress > 0)
               Padding(
                 padding: const EdgeInsets.fromLTRB(9, 5, 9, 0),
-                child: LinearProgressIndicator(value: task!.progress),
+                child: LinearProgressIndicator(value: task.progress),
               ),
             Padding(
               padding: const EdgeInsets.all(7),

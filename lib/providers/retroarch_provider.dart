@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/models.dart';
 import '../services/services.dart';
 import 'api_provider.dart';
 import 'debrid_provider.dart';
