@@ -191,7 +191,7 @@ class _RetroArchLibraryScreenState
 
     final localPath = item.installedPath;
     if (localPath != null && _pathExists(localPath)) {
-      await _launchPath(localPath, content.title);
+      await _launchPath(localPath);
       return;
     }
 
@@ -234,7 +234,7 @@ class _RetroArchLibraryScreenState
             task.filePath != null &&
             _pathExists(task.filePath!)) {
           _pendingLaunches.remove(content.romgiSlug);
-          await _launchPath(task.filePath!, content.title);
+          await _launchPath(task.filePath!);
         } else {
           _showMessage('${content.title} is already in the download queue');
         }
@@ -259,10 +259,10 @@ class _RetroArchLibraryScreenState
     }
 
     await ref.read(retroArchLibraryProvider.notifier).refresh();
-    await _launchPath(path, task.title);
+    await _launchPath(path);
   }
 
-  Future<void> _launchPath(String path, String title) async {
+  Future<void> _launchPath(String path) async {
     try {
       await ref.read(retroArchLauncherProvider).launch(path);
     } on PlatformException catch (error) {

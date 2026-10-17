@@ -38,10 +38,12 @@ class RetroArchLibraryService {
       ),
     );
 
-    final contents = _catalog.adaptAll(
-      platformEntries.expand((entries) => entries),
-      isIaLoggedIn: isIaLoggedIn,
-    )
+    final contents = [
+      ..._catalog.adaptAll(
+        platformEntries.expand((entries) => entries),
+        isIaLoggedIn: isIaLoggedIn,
+      ),
+    ]
       ..sort((a, b) {
         final platform = a.platform.compareTo(b.platform);
         if (platform != 0) return platform;
