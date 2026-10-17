@@ -263,7 +263,18 @@ class DownloadService {
   }) async {
     final existingDownload = await _db.findExistingDownload(slug);
     if (existingDownload != null) {
-      return (AddDownloadResult.duplicate, existingDownload);
+      // A completed row is only a duplicate while its output still exists.
+      // If the user removed the ROM outside Romgi, allow the Steam-like
+      // Install action to recreate it instead of trapping the item behind a
+      // stale history row.
+      if (existingDownload.status == DownloadStatus.completed &&
+          (existingDownload.filePath == null ||
+              !File(existingDownload.filePath!).existsSync() &&
+                  !Directory(existingDownload.filePath!).existsSync())) {
+        await _db.deleteDownload(existingDownload.id);
+      } else {
+        return (AddDownloadResult.duplicate, existingDownload);
+      }
     }
 
     final downloadTask = DownloadTask(
