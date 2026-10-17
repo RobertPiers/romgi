@@ -9,6 +9,7 @@ export 'host_adapter.dart';
 export 'internet_archive_auth_manager.dart';
 export 'link_resolver.dart';
 export 'live_search_source.dart';
+export 'local_game_library_service.dart';
 export 'macintosh_garden_service.dart';
 export 'metadata/metadata_provider.dart';
 export 'metadata/metadata_registry.dart';

@@ -90,6 +90,45 @@ class StorageService {
     return downloadDir;
   }
 
+  /// Returns folders that should be treated as local game-library roots.
+  ///
+  /// These are intentionally narrow, well-known ROM folders. Romgi must not
+  /// recursively scan all shared storage because Android devices commonly
+  /// contain hundreds of thousands of unrelated files.
+  Future<List<Directory>> getLibraryDirectories() async {
+    final paths = <String>{};
+
+    if (_customDownloadPath != null) {
+      paths.add(_customDownloadPath!);
+    } else if (Platform.isAndroid) {
+      paths.add(defaultAndroidPath);
+    } else {
+      paths.add((await getDownloadDirectory()).path);
+    }
+
+    paths.addAll(_platformPaths.values);
+
+    if (Platform.isAndroid) {
+      paths.addAll(const [
+        '/storage/emulated/0/RetroArch/roms',
+        '/storage/emulated/0/RetroArch/downloads',
+        '/storage/emulated/0/ROMs',
+        '/storage/emulated/0/roms',
+      ]);
+    }
+
+    final directories = <Directory>[];
+    for (final path in paths) {
+      final directory = Directory(path);
+      try {
+        if (await directory.exists()) directories.add(directory);
+      } catch (_) {
+        // A folder may be inaccessible under Android's storage rules.
+      }
+    }
+    return directories;
+  }
+
   void setCustomDownloadPath(String? path) {
     _customDownloadPath = path;
   }

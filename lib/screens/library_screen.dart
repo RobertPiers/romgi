@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
 import '../providers/providers.dart';
+import '../services/storage_service.dart';
 import '../utils/utils.dart';
 import 'entry_detail_screen.dart';
 
@@ -140,7 +141,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 children: [
                   const Icon(Icons.folder, size: 18),
                   const SizedBox(width: 8),
-                  Text('Downloaded (${libraryState.items.length})'),
+                  Text('Games (${libraryState.items.length})'),
                 ],
               ),
             ),
@@ -160,7 +161,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Downloaded tab
+          // Local game frontend
           _buildDownloadedTab(libraryState),
           // Wishlist tab
           _buildWishlistTab(favoritesAsync),
@@ -170,50 +171,26 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   }
 
   Widget _buildDownloadedTab(LibraryState libraryState) {
+    if (libraryState.searchQuery.isEmpty &&
+        libraryState.selectedPlatform == null) {
+      return _buildSystemsView(libraryState);
+    }
+
     return Column(
       children: [
-        // Platform filter chips
-        if (libraryState.platforms.isNotEmpty)
-          Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                FilterChip(
-                  label: const Text('All'),
-                  selected: libraryState.selectedPlatform == null,
-                  onSelected: (selected) {
-                    ref
-                        .read(libraryProvider.notifier)
-                        .setSelectedPlatform(null);
-                  },
-                ),
-                const SizedBox(width: 8),
-                ...libraryState.platforms.map((platform) {
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(PlatformNames.getDisplayName(platform)),
-                      selected: libraryState.selectedPlatform == platform,
-                      onSelected: (selected) {
-                        ref
-                            .read(libraryProvider.notifier)
-                            .setSelectedPlatform(
-                              libraryState.selectedPlatform == platform
-                                  ? null
-                                  : platform,
-                            );
-                      },
-                    ),
-                  );
-                }),
-              ],
+        if (libraryState.selectedPlatform != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => ref
+                  .read(libraryProvider.notifier)
+                  .setSelectedPlatform(null),
+              icon: const Icon(Icons.arrow_back),
+              label: Text(
+                'All systems · ${PlatformNames.getDisplayName(libraryState.selectedPlatform!)}',
+              ),
             ),
           ),
-
-        // Library items
         Expanded(
           child: libraryState.isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -230,15 +207,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                       mainAxisSpacing: 16,
                     ),
                     itemCount: libraryState.filteredItems.length,
-                    itemBuilder: (context, index) {
-                      final item = libraryState.filteredItems[index];
-                      final fileExists =
-                          libraryState.fileExists(item.filePath);
-                      return _LibraryGameCard(
-                        item: item,
-                        fileExists: fileExists,
-                        onTap: () => _openFile(item),
-                        onDetails: () => _showDetails(item),
+                      itemBuilder: (context, index) {
+                        final item = libraryState.filteredItems[index];
+                        return _LibraryGameCard(
+                          item: item,
+                          onTap: () => _openFile(item),
+                          onDetails: () => _showDetails(item),
                         onDelete: () => _confirmDelete(item),
                       );
                     },
@@ -246,6 +220,49 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSystemsView(LibraryState libraryState) {
+    if (libraryState.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (libraryState.items.isEmpty) {
+      return _buildEmptyState(libraryState);
+    }
+
+    final counts = <String, int>{};
+    final representatives = <String, LocalGame>{};
+    for (final game in libraryState.items) {
+      counts[game.platform] = (counts[game.platform] ?? 0) + 1;
+      representatives.putIfAbsent(game.platform, () => game);
+    }
+    final platforms = counts.keys.toList()..sort();
+
+    return RefreshIndicator(
+      onRefresh: () => ref.read(libraryProvider.notifier).refresh(),
+      child: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 280,
+          mainAxisExtent: 170,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+        ),
+        itemCount: platforms.length,
+        itemBuilder: (context, index) {
+          final platform = platforms[index];
+          final representative = representatives[platform]!;
+          return _SystemCard(
+            platform: platform,
+            count: counts[platform]!,
+            representative: representative,
+            onTap: () => ref
+                .read(libraryProvider.notifier)
+                .setSelectedPlatform(platform),
+          );
+        },
+      ),
     );
   }
 
@@ -364,7 +381,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Downloaded ROMs will appear here',
+            'Downloaded or scanned ROMs will appear here',
             style: TextStyle(color: Colors.grey[500]),
           ),
         ],
@@ -372,16 +389,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     );
   }
 
-  Future<void> _openFile(DownloadTask item) async {
-    if (item.filePath == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('File path not found')));
-      return;
-    }
-
-    final file = File(item.filePath!);
-    final directory = Directory(item.filePath!);
+  Future<void> _openFile(LocalGame item) async {
+    final file = File(item.filePath);
+    final directory = Directory(item.filePath);
     if (!await file.exists() && !await directory.exists()) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -392,7 +402,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     }
 
     try {
-      await ref.read(retroArchLauncherProvider).launch(item.filePath!);
+      await ref.read(retroArchLauncherProvider).launch(item.filePath);
     } on PlatformException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -412,7 +422,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     }
   }
 
-  Future<void> _showDetails(DownloadTask item) async {
+  Future<void> _showDetails(LocalGame item) async {
     if (!mounted) return;
 
     await showDialog<void>(
@@ -424,11 +434,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _infoRow('System', PlatformNames.getDisplayName(item.platform)),
-            _infoRow('Format', item.link.format.toUpperCase()),
-            _infoRow('Size', item.link.sizeStr),
+            _infoRow('Format', item.format),
+            _infoRow('Size', StorageService.formatBytes(item.size)),
             const SizedBox(height: 8),
             Text(
-              item.filePath ?? 'No local path',
+              item.filePath,
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ],
@@ -439,12 +449,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
             child: const Text('Close'),
           ),
           FilledButton.icon(
-            onPressed: item.filePath == null
-                ? null
-                : () {
-                    Navigator.pop(dialogContext);
-                    _openFile(item);
-                  },
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _openFile(item);
+            },
             icon: const Icon(Icons.play_arrow),
             label: const Text('Play'),
           ),
@@ -472,7 +480,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     );
   }
 
-  Future<void> _confirmDelete(DownloadTask item) async {
+  Future<void> _confirmDelete(LocalGame item) async {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -483,10 +491,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
             onPressed: () => Navigator.pop(context, 'cancel'),
             child: const Text('Cancel'),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'remove'),
-            child: const Text('Remove from Library'),
-          ),
+          if (item.isManagedDownload)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'remove'),
+              child: const Text('Remove from Library'),
+            ),
           TextButton(
             onPressed: () => Navigator.pop(context, 'delete'),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -527,15 +536,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 }
 
 class _LibraryGameCard extends StatelessWidget {
-  final DownloadTask item;
-  final bool fileExists;
+  final LocalGame item;
   final VoidCallback onTap;
   final VoidCallback onDetails;
   final VoidCallback onDelete;
 
   const _LibraryGameCard({
     required this.item,
-    required this.fileExists,
     required this.onTap,
     required this.onDetails,
     required this.onDelete,
@@ -558,7 +565,14 @@ class _LibraryGameCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  item.boxartUrl != null
+                  item.artworkPath != null
+                      ? Image.file(
+                          File(item.artworkPath!),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stack) =>
+                              _networkArtwork(theme),
+                        )
+                      : item.boxartUrl != null
                       ? CachedNetworkImage(
                           imageUrl: item.boxartUrl!,
                           fit: BoxFit.cover,
@@ -568,33 +582,16 @@ class _LibraryGameCard extends StatelessWidget {
                               _placeholder(theme),
                         )
                       : _placeholder(theme),
-                  if (!fileExists)
-                    Container(
-                      color: Colors.black54,
-                      alignment: Alignment.center,
-                      child: const Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.warning_amber, color: Colors.white),
-                          SizedBox(height: 4),
-                          Text(
-                            'Missing file',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ],
-                      ),
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: FloatingActionButton.small(
+                      heroTag: 'play-${item.id}',
+                      onPressed: onTap,
+                      tooltip: 'Play in RetroArch',
+                      child: const Icon(Icons.play_arrow),
                     ),
-                  if (fileExists)
-                    Positioned(
-                      right: 8,
-                      bottom: 8,
-                      child: FloatingActionButton.small(
-                        heroTag: 'play-${item.id}',
-                        onPressed: onTap,
-                        tooltip: 'Play in RetroArch',
-                        child: const Icon(Icons.play_arrow),
-                      ),
-                    ),
+                  ),
                 ],
               ),
             ),
@@ -609,9 +606,6 @@ class _LibraryGameCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        color: fileExists ? null : Colors.grey,
-                        decoration:
-                            fileExists ? null : TextDecoration.lineThrough,
                       ),
                     ),
                   ),
@@ -662,6 +656,112 @@ class _LibraryGameCard extends StatelessWidget {
         Icons.videogame_asset,
         size: 48,
         color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+
+  Widget _networkArtwork(ThemeData theme) {
+    final url = item.boxartUrl;
+    if (url == null) return _placeholder(theme);
+    return CachedNetworkImage(
+      imageUrl: url,
+      fit: BoxFit.cover,
+      errorWidget: (context, string, error) => _placeholder(theme),
+    );
+  }
+}
+
+class _SystemCard extends StatelessWidget {
+  final String platform;
+  final int count;
+  final LocalGame representative;
+  final VoidCallback onTap;
+
+  const _SystemCard({
+    required this.platform,
+    required this.count,
+    required this.representative,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (representative.artworkPath != null)
+              Image.file(
+                File(representative.artworkPath!),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stack) =>
+                    _systemPlaceholder(theme),
+              )
+            else if (representative.boxartUrl != null)
+              CachedNetworkImage(
+                imageUrl: representative.boxartUrl!,
+                fit: BoxFit.cover,
+                errorWidget: (context, string, error) =>
+                    _systemPlaceholder(theme),
+              )
+            else
+              _systemPlaceholder(theme),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.85),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    PlatformNames.getDisplayName(platform),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '$count ${count == 1 ? 'game' : 'games'}',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _systemPlaceholder(ThemeData theme) {
+    return Container(
+      color: theme.colorScheme.primaryContainer,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.videogame_asset,
+        size: 56,
+        color: theme.colorScheme.onPrimaryContainer,
       ),
     );
   }
