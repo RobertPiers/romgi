@@ -1,7 +1,9 @@
 package com.caprado.romgi
 
 import android.content.Intent
+import android.content.ComponentName
 import android.webkit.CookieManager
+import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
 import com.caprado.romgi.ncch_decrypt.NcchDecryptHostApi
 import com.caprado.romgi.ncch_decrypt.NcchDecryptServiceImpl
@@ -61,6 +63,80 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     } catch (t: Throwable) {
                         result.error("OPEN_FAILED", t.message, null)
+                    }
+                } else if (call.method == "launchRetroArch") {
+                    val path = call.argument<String>("path")
+                    if (path == null) {
+                        result.error("ARG", "path is required", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val file = File(path)
+                        if (!file.exists() || !file.isFile) {
+                            result.error("FILE_MISSING", "content file does not exist", null)
+                            return@setMethodCallHandler
+                        }
+
+                        val uri = FileProvider.getUriForFile(
+                            this, "$packageName.fileprovider", file,
+                        )
+                        val extension = file.extension.lowercase()
+                        val mime = MimeTypeMap.getSingleton()
+                            .getMimeTypeFromExtension(extension) ?: "application/octet-stream"
+                        val packages = listOf(
+                            "com.retroarch.aarch64",
+                            "com.retroarch",
+                            "com.retroarch.ra32",
+                            "org.libretro.retroarch",
+                        )
+                        val retroActivity =
+                            "com.retroarch.browser.retroactivity.RetroActivityFuture"
+
+                        var launched = false
+                        for (retroArchPackage in packages) {
+                            val retro = Intent().apply {
+                                component = ComponentName(retroArchPackage, retroActivity)
+                                putExtra("ROM", file.absolutePath)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            }
+                            try {
+                                startActivity(retro)
+                                launched = true
+                                break
+                            } catch (_: Throwable) {
+                                // Try the next known RetroArch package.
+                            }
+                        }
+
+                        // Some community builds expose only ACTION_VIEW. Keep
+                        // the file-provider fallback for those variants.
+                        if (!launched) {
+                            val view = Intent(Intent.ACTION_VIEW).apply {
+                                data = uri
+                                type = mime
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            try {
+                                startActivity(view)
+                                launched = true
+                            } catch (_: Throwable) {
+                                // Report the install/launch error below.
+                            }
+                        }
+
+                        if (launched) {
+                            result.success(null)
+                        } else {
+                            result.error(
+                                "RETROARCH_NOT_INSTALLED",
+                                "Install RetroArch before launching games",
+                                null,
+                            )
+                        }
+                    } catch (t: Throwable) {
+                        result.error("RETROARCH_LAUNCH_FAILED", t.message, null)
                     }
                 } else if (call.method == "getNativeLibraryDir") {
                     // pkg2zip is bundled as jniLibs/<abi>/libpkg2zip.so (a real
